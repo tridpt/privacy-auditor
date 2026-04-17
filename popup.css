@@ -704,3 +704,29 @@ body {
   line-height: 1;
 }
 .footer-settings-btn:hover { opacity: 1; }
+
+/* ── Export Report button ────────────────────────────────── */
+.export-report-btn {
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  width: 100%; margin-top: 12px;
+  background: linear-gradient(135deg, rgba(99,102,241,.18), rgba(139,92,246,.18));
+  border: 1px solid rgba(99,102,241,.35);
+  border-radius: var(--r-card);
+  color: #a5b4fc;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px; font-weight: 600;
+  padding: 10px 16px;
+  transition: all var(--transition);
+}
+.export-report-btn:hover {
+  background: linear-gradient(135deg, rgba(99,102,241,.3), rgba(139,92,246,.28));
+  border-color: rgba(99,102,241,.6);
+  color: #fff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(99,102,241,.2);
+}
+.export-report-btn:active { transform: translateY(0); }
+.export-report-btn.exporting {
+  opacity: .7; pointer-events: none;
+}

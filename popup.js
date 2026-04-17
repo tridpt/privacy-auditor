@@ -5,7 +5,8 @@
 'use strict';
 
 // currently active tab id — needed for BLOCK_ALL
-let currentTabId = null;
+let currentTabId   = null;
+let currentData    = null;  // full scan data for export
 
 // ── Constants ────────────────────────────────────────────────
 const ARC_TOTAL = 267.5; // π × 85  (radius of gauge arc)
@@ -459,6 +460,7 @@ async function loadData() {
     }
 
     currentTabId = tab.id;
+    currentData  = data;    // save for export
 
     updateStats(data);
     const blockedSet = new Set(data.blocked ?? []);
@@ -591,6 +593,109 @@ globalToggle.addEventListener('change', async () => {
 document.getElementById('openSettingsBtn').addEventListener('click', () => {
   chrome.runtime.openOptionsPage();
 });
+
+// ── Export Report ─────────────────────────────────────────────
+async function exportReport() {
+  if (!currentData || !currentHostname) return;
+
+  const btn = document.getElementById('exportReportBtn');
+  btn.classList.add('exporting');
+  btn.textContent = '⏳ Preparing…';
+
+  try {
+    const d = currentData;
+    const grade = getGrade(d.score);
+
+    // Fetch real cookies via chrome.cookies API
+    let cookies = [];
+    try {
+      cookies = await chrome.cookies.getAll({ domain: currentHostname });
+    } catch (_) {}
+
+    // Fetch whitelist and global protection state
+    const wlResp = await chrome.runtime.sendMessage({ type: 'GET_WHITELIST' });
+    const { globalProtection } = await chrome.storage.local.get('globalProtection');
+    const isWhitelisted = (wlResp?.whitelist ?? []).includes(currentHostname);
+
+    const report = {
+      meta: {
+        tool:       'Privacy Auditor v1.0',
+        exportedAt: new Date().toISOString(),
+        scannedAt:  d.timestamp ? new Date(d.timestamp).toISOString() : null,
+      },
+      site: {
+        hostname:          currentHostname,
+        url:               d.url || null,
+        whitelisted:       isWhitelisted,
+        globalProtection:  !!globalProtection,
+      },
+      score: {
+        value:   d.score,
+        outOf:   100,
+        grade:   grade.label,
+      },
+      summary: {
+        trackers:          d.trackers?.length ?? 0,
+        fingerprintingAPIs: d.fingerprinting?.length ?? 0,
+        cookies:           cookies.length,
+        externalRequests:  d.requests?.external ?? 0,
+        totalRequests:     d.requests?.total ?? 0,
+        localStorage:      d.localStorage ?? 0,
+        sessionStorage:    d.sessionStorage ?? 0,
+      },
+      trackers: (d.trackers ?? []).map(t => ({
+        name:         t.name,
+        category:     t.category,
+        risk:         t.risk,
+        domain:       t.domain,
+        requests:     t.requestCount ?? 0,
+        blocked:      (d.blocked ?? []).includes(t.name + '|' + t.category),
+      })),
+      fingerprinting: (d.fingerprinting ?? []).map(f => ({
+        technique:   f.technique,
+        severity:    f.severity,
+        description: f.description ?? null,
+      })),
+      cookies: cookies.map(c => ({
+        name:           c.name,
+        domain:         c.domain,
+        path:           c.path,
+        httpOnly:       c.httpOnly,
+        secure:         c.secure,
+        sameSite:       c.sameSite,
+        session:        !c.expirationDate,
+        expiresAt:      c.expirationDate ? new Date(c.expirationDate * 1000).toISOString() : null,
+      })),
+      blocked: d.blocked ?? [],
+    };
+
+    // Trigger download
+    const json     = JSON.stringify(report, null, 2);
+    const blob     = new Blob([json], { type: 'application/json' });
+    const url      = URL.createObjectURL(blob);
+    const date     = new Date().toISOString().slice(0, 10);
+    const filename = `privacy-report-${currentHostname}-${date}.json`;
+
+    const a = document.createElement('a');
+    a.href     = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+  } finally {
+    btn.classList.remove('exporting');
+    btn.innerHTML = `
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      Export Privacy Report (.json)`;
+  }
+}
+
+document.getElementById('exportReportBtn').addEventListener('click', exportReport);
 
 // ── Boot ──────────────────────────────────────────────────────
 loadData();
