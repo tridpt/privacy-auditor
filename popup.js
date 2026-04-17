@@ -587,5 +587,10 @@ globalToggle.addEventListener('change', async () => {
   globalToggle.disabled = false;
 });
 
+// ── Settings button ────────────────────────────────────────────
+document.getElementById('openSettingsBtn').addEventListener('click', () => {
+  chrome.runtime.openOptionsPage();
+});
+
 // ── Boot ──────────────────────────────────────────────────────
 loadData();

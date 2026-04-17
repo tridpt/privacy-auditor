@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Auditor — Settings</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+<div class="layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-icon">🛡️</span>
+      <div>
+        <div class="brand-name">Privacy Auditor</div>
+        <div class="brand-ver">v1.0 · Settings</div>
+      </div>
+    </div>
+    <nav class="nav">
+      <a class="nav-item active" data-sec="notifications" href="#notifications">
+        <span>🔔</span> Notifications
+      </a>
+      <a class="nav-item" data-sec="whitelist" href="#whitelist">
+        <span>✅</span> Whitelist
+      </a>
+      <a class="nav-item" data-sec="custom-rules" href="#custom-rules">
+        <span>⚙️</span> Custom Block Rules
+      </a>
+      <a class="nav-item" data-sec="advanced" href="#advanced">
+        <span>🔧</span> Advanced
+      </a>
+      <a class="nav-item" data-sec="about" href="#about">
+        <span>ℹ️</span> About
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <div id="saveStatus" class="save-status"></div>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main class="main">
+
+    <!-- ── Notifications ──────────────────────────── -->
+    <section id="notifications" class="section">
+      <h1 class="section-title">🔔 Notifications</h1>
+      <p class="section-desc">Configure when Privacy Auditor sends desktop alerts.</p>
+
+      <div class="card">
+        <div class="setting-row">
+          <div class="setting-info">
+            <div class="setting-label">Enable desktop notifications</div>
+            <div class="setting-desc">Show an alert when a page has a low privacy score</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="notifEnabled" checked>
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="setting-row" id="thresholdRow">
+          <div class="setting-info">
+            <div class="setting-label">Alert threshold — <span id="thresholdVal" class="accent-val">45</span></div>
+            <div class="setting-desc">Notify when the privacy score drops below this value</div>
+          </div>
+          <input type="range" id="thresholdSlider" min="10" max="80" value="45" class="range-input">
+        </div>
+
+        <div class="threshold-labels">
+          <span>10 (strictest)</span>
+          <div class="threshold-bar">
+            <div id="thresholdFill" class="threshold-fill" style="width:43.75%"></div>
+          </div>
+          <span>80 (lenient)</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Whitelist ──────────────────────────────── -->
+    <section id="whitelist" class="section">
+      <h1 class="section-title">✅ Whitelist</h1>
+      <p class="section-desc">Sites in the whitelist are exempt from auto-blocking and alert notifications.</p>
+
+      <div class="card">
+        <div class="add-row">
+          <input type="text" id="wlInput" class="text-input" placeholder="example.com">
+          <button id="wlAddBtn" class="add-btn">Add Site</button>
+        </div>
+        <div id="wlList" class="domain-list"></div>
+        <div id="wlEmpty" class="list-empty">No whitelisted sites. Add sites above to exempt them.</div>
+      </div>
+    </section>
+
+    <!-- ── Custom Block Rules ─────────────────────── -->
+    <section id="custom-rules" class="section">
+      <h1 class="section-title">⚙️ Custom Block Rules</h1>
+      <p class="section-desc">Block specific domains globally on all websites, regardless of the Auto-Block toggle.</p>
+
+      <div class="card">
+        <div class="add-row">
+          <input type="text" id="crInput" class="text-input" placeholder="ads.example.com">
+          <button id="crAddBtn" class="add-btn">Block Domain</button>
+        </div>
+        <div id="crList" class="domain-list"></div>
+        <div id="crEmpty" class="list-empty">No custom rules. Domains you add here are always blocked.</div>
+      </div>
+    </section>
+
+    <!-- ── Advanced ───────────────────────────────── -->
+    <section id="advanced" class="section">
+      <h1 class="section-title">🔧 Advanced</h1>
+      <p class="section-desc">Danger zone — these actions cannot be undone.</p>
+
+      <div class="card">
+        <div class="setting-row">
+          <div class="setting-info">
+            <div class="setting-label">Clear visited site history</div>
+            <div class="setting-desc">Remove all privacy scan records from the History tab</div>
+          </div>
+          <button id="clearHistBtn" class="danger-btn">Clear History</button>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="setting-row">
+          <div class="setting-info">
+            <div class="setting-label">Reset all data</div>
+            <div class="setting-desc">Remove all settings, whitelist, custom rules, history, and blocked state</div>
+          </div>
+          <button id="resetAllBtn" class="danger-btn danger-btn-strong">Reset Everything</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── About ──────────────────────────────────── -->
+    <section id="about" class="section">
+      <h1 class="section-title">ℹ️ About</h1>
+
+      <div class="card about-card">
+        <div class="about-icon">🛡️</div>
+        <div class="about-name">Privacy Auditor</div>
+        <div class="about-version">Version 1.0.0</div>
+        <p class="about-desc">
+          A powerful Chrome extension that detects and blocks trackers, fingerprinting scripts,
+          and privacy-invasive technologies in real time. Built with Manifest V3 and
+          <code>declarativeNetRequest</code> for native, high-performance protection.
+        </p>
+        <div class="about-features">
+          <span class="feature-tag">50+ Tracker DB</span>
+          <span class="feature-tag">Fingerprint Detection</span>
+          <span class="feature-tag">Global Auto-Block</span>
+          <span class="feature-tag">Cookie Manager</span>
+          <span class="feature-tag">Site History</span>
+          <span class="feature-tag">Desktop Alerts</span>
+        </div>
+        <a id="githubLink" href="https://github.com/tridpt/privacy-auditor" target="_blank" class="about-link">
+          View on GitHub →
+        </a>
+      </div>
+    </section>
+
+  </main>
+</div>
+<script src="options.js"></script>
+</body>
+</html>

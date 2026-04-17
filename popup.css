@@ -694,3 +694,13 @@ body {
   line-height: 1;
 }
 .delete-cookie-btn:hover { color: #ef4444; background: rgba(239,68,68,.12); }
+
+/* ── Footer settings button ──────────────────────────────── */
+.footer-settings-btn {
+  background: none; border: none;
+  cursor: pointer; padding: 2px 4px;
+  border-radius: 5px; font-size: 14px;
+  opacity: .55; transition: opacity var(--transition);
+  line-height: 1;
+}
+.footer-settings-btn:hover { opacity: 1; }

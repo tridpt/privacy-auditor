@@ -3,29 +3,90 @@
 // ============================================================
 
 // ── Per-site blocking store (rule IDs 2000+) ─────────────────
-// domain → declarativeNetRequest ruleId
 const blockedRules = new Map();
 let nextRuleId = 2000;
 
 // ── Whitelist store ──────────────────────────────────────────
-// hostname → whitelisted (no global block, no notification)
 let whitelist = new Set();
 
+// ── Settings ────────────────────────────────────────────────
+let notifEnabled    = true;
+let notifyThreshold = 45;
+
+// ── Custom block rules (rule IDs 1000–1999) ──────────────────
+// User-defined domains blocked globally regardless of global protection toggle
+const customRuleMap  = new Map(); // domain → ruleId
+let nextCustomRuleId = 1000;
+
 // Restore everything on service worker startup
-chrome.storage.local.get(['blockedDomains', 'globalProtection', 'whitelist'], async (result) => {
-  const saved = result.blockedDomains || {};
-  for (const [domain, ruleId] of Object.entries(saved)) {
-    blockedRules.set(domain, ruleId);
-    if (ruleId >= nextRuleId) nextRuleId = ruleId + 1;
+chrome.storage.local.get(
+  ['blockedDomains', 'globalProtection', 'whitelist',
+   'notifEnabled', 'notifyThreshold', 'customBlockRules'],
+  async (result) => {
+    const saved = result.blockedDomains || {};
+    for (const [domain, ruleId] of Object.entries(saved)) {
+      blockedRules.set(domain, ruleId);
+      if (ruleId >= nextRuleId) nextRuleId = ruleId + 1;
+    }
+    whitelist = new Set(result.whitelist || []);
+    if (result.notifEnabled  !== undefined) notifEnabled    = result.notifEnabled;
+    if (result.notifyThreshold != null)     notifyThreshold = result.notifyThreshold;
+
+    // Restore custom block rules
+    const savedCustom = result.customBlockRules || [];
+    if (savedCustom.length) {
+      const addRules = savedCustom.map((domain, idx) => ({
+        id: 1000 + idx, priority: 2, action: { type: 'block' },
+        condition: {
+          urlFilter: `||${domain}^`,
+          resourceTypes: ['script', 'xmlhttprequest', 'ping', 'image', 'media', 'sub_frame', 'other'],
+        },
+      }));
+      const removeRuleIds = savedCustom.map((_, idx) => 1000 + idx);
+      try {
+        await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds, addRules });
+        savedCustom.forEach((domain, idx) => {
+          customRuleMap.set(domain, 1000 + idx);
+          nextCustomRuleId = Math.max(nextCustomRuleId, 1001 + idx);
+        });
+      } catch (err) { console.error('[PA] Custom rule restore failed:', err); }
+    }
+
+    if (result.globalProtection) setTimeout(() => enableGlobalProtection(false), 0);
   }
-  whitelist = new Set(result.whitelist || []);
-  if (result.globalProtection) {
-    setTimeout(() => enableGlobalProtection(false), 0);
-  }
-});
+);
 
 async function persistWhitelist() {
   await chrome.storage.local.set({ whitelist: [...whitelist] });
+}
+
+async function persistCustomRules() {
+  await chrome.storage.local.set({ customBlockRules: [...customRuleMap.keys()] });
+}
+
+async function addCustomRule(domain) {
+  if (!domain || customRuleMap.has(domain)) return;
+  const ruleId = nextCustomRuleId++;
+  await chrome.declarativeNetRequest.updateDynamicRules({
+    addRules: [{
+      id: ruleId, priority: 2, action: { type: 'block' },
+      condition: {
+        urlFilter: `||${domain}^`,
+        resourceTypes: ['script', 'xmlhttprequest', 'ping', 'image', 'media', 'sub_frame', 'other'],
+      },
+    }],
+    removeRuleIds: [],
+  });
+  customRuleMap.set(domain, ruleId);
+  await persistCustomRules();
+}
+
+async function removeCustomRule(domain) {
+  const ruleId = customRuleMap.get(domain);
+  if (!ruleId) return;
+  await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds: [ruleId], addRules: [] });
+  customRuleMap.delete(domain);
+  await persistCustomRules();
 }
 
 async function persistBlocked() {
@@ -159,19 +220,19 @@ async function disableGlobalProtection() {
 const notifiedTabs    = new Set();
 const pendingTimers   = new Map(); // tabId → setTimeout handle
 
-const NOTIFY_THRESHOLD = 45; // score below this triggers alert
 const NOTIFY_DELAY_MS  = 3500; // wait for network requests to settle
 
 function maybeNotify(tabId) {
+  if (!notifEnabled) return;           // notifications toggled off in settings
   if (notifiedTabs.has(tabId)) return;
   if (!tabData.has(tabId))     return;
 
   const d        = tabData.get(tabId);
   const hostname = getDomain(d.url || '');
-  if (hostname && whitelist.has(hostname)) return; // skip whitelisted sites
+  if (hostname && whitelist.has(hostname)) return;
 
   const score = calculateScore(d);
-  if (score >= NOTIFY_THRESHOLD) return;
+  if (score >= notifyThreshold) return; // use user-configured threshold
 
   notifiedTabs.add(tabId);
 
@@ -755,6 +816,45 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     case 'GET_WHITELIST': {
       sendResponse({ whitelist: [...whitelist] });
+      return true;
+    }
+
+    case 'GET_SETTINGS': {
+      sendResponse({ notifEnabled, notifyThreshold });
+      return true;
+    }
+
+    case 'SAVE_SETTINGS': {
+      ;(async () => {
+        const { notifEnabled: ne, notifyThreshold: nt } = message;
+        if (ne !== undefined) notifEnabled    = ne;
+        if (nt !== undefined) notifyThreshold = nt;
+        await chrome.storage.local.set({ notifEnabled, notifyThreshold });
+        sendResponse({ ok: true });
+      })();
+      return true;
+    }
+
+    case 'ADD_CUSTOM_RULE': {
+      ;(async () => {
+        try {
+          await addCustomRule(message.domain);
+          sendResponse({ ok: true, rules: [...customRuleMap.keys()] });
+        } catch (err) { sendResponse({ ok: false, error: err.message }); }
+      })();
+      return true;
+    }
+
+    case 'REMOVE_CUSTOM_RULE': {
+      ;(async () => {
+        await removeCustomRule(message.domain);
+        sendResponse({ ok: true, rules: [...customRuleMap.keys()] });
+      })();
+      return true;
+    }
+
+    case 'GET_CUSTOM_RULES': {
+      sendResponse({ rules: [...customRuleMap.keys()] });
       return true;
     }
   }
