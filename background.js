@@ -25,23 +25,30 @@ async function persistBlocked() {
 async function blockDomain(domain) {
   if (!domain || blockedRules.has(domain)) return;
   const ruleId = nextRuleId++;
-  await chrome.declarativeNetRequest.updateDynamicRules({
-    addRules: [{
-      id: ruleId,
-      priority: 1,
-      action: { type: 'block' },
-      condition: {
-        urlFilter: `||${domain}^`,
-        resourceTypes: [
-          'script', 'xmlhttprequest', 'ping',
-          'image', 'media', 'sub_frame', 'beacon'
-        ],
-      },
-    }],
-    removeRuleIds: [],
-  });
-  blockedRules.set(domain, ruleId);
-  await persistBlocked();
+  try {
+    await chrome.declarativeNetRequest.updateDynamicRules({
+      addRules: [{
+        id: ruleId,
+        priority: 1,
+        action: { type: 'block' },
+        condition: {
+          urlFilter: `||${domain}^`,
+          resourceTypes: [
+            'script', 'xmlhttprequest', 'ping',
+            'image', 'media', 'sub_frame', 'other'
+          ],
+        },
+      }],
+      removeRuleIds: [],
+    });
+    blockedRules.set(domain, ruleId);
+    await persistBlocked();
+    console.log('[PrivacyAuditor] Blocked:', domain, '→ rule', ruleId);
+  } catch (err) {
+    nextRuleId--; // roll back unused id
+    console.error('[PrivacyAuditor] Failed to block', domain, err);
+    throw err;    // re-throw so caller knows it failed
+  }
 }
 
 async function unblockDomain(domain) {
@@ -483,7 +490,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const tabId = message.tabId;
         if (tabData.has(tabId)) {
           for (const t of tabData.get(tabId).trackers.values()) {
-            await blockDomain(t.domain);
+            try { await blockDomain(t.domain); } catch (_) {} // skip if one fails
           }
         }
         sendResponse({ ok: true, blocked: [...blockedRules.keys()] });
