@@ -511,36 +511,56 @@ function isSameFamily(domainA, domainB) {
 }
 
 // ── Badge helper ──────────────────────────────────────────
+function scoreToColor(score) {
+  if (score >= 80) return '#22c55e'; // green   — safe
+  if (score >= 65) return '#84cc16'; // lime    — okay
+  if (score >= 50) return '#f59e0b'; // amber   — caution
+  if (score >= 35) return '#f97316'; // orange  — risky
+  return '#ef4444';                  // red     — critical
+}
+
 function updateBadge(tabId) {
   if (!tabData.has(tabId)) {
     chrome.action.setBadgeText({ text: '', tabId });
     return;
   }
-  const data   = tabData.get(tabId);
-  const count  = data.trackers.size;
+  const data  = tabData.get(tabId);
+  const count = data.trackers.size;
 
   if (count === 0) {
-    chrome.action.setBadgeText({ text: '', tabId });
+    // No trackers yet — show neutral grey dot so user knows extension is alive
+    chrome.action.setBadgeText({ text: '✓', tabId });
+    chrome.action.setBadgeBackgroundColor({ color: '#64748b', tabId });
+    chrome.action.setBadgeTextColor?.({ color: '#ffffff', tabId });
     return;
   }
 
-  // Text: show count, cap at 99
+  // Show tracker count (capped at 99); real score badge set by updateBadgeFromScore
   chrome.action.setBadgeText({
     text: count > 99 ? '99+' : String(count),
     tabId,
   });
 
-  // Colour: red > orange > yellow based on worst risk
-  const trackers   = [...data.trackers.values()];
-  const hasCrit    = trackers.some(t => t.risk === 'critical');
-  const hasHigh    = trackers.some(t => t.risk === 'high');
-  const color      = (hasCrit || count > 5) ? '#ef4444'
-                   : (hasHigh || count > 2)  ? '#f97316'
-                   :                           '#f59e0b';
+  // Interim color based on risk until full score arrives
+  const trackers = [...data.trackers.values()];
+  const hasCrit  = trackers.some(t => t.risk === 'critical');
+  const hasHigh  = trackers.some(t => t.risk === 'high');
+  const color    = hasCrit          ? '#ef4444'
+                 : (hasHigh || count > 5) ? '#f97316'
+                 : (count > 2)           ? '#f59e0b'
+                 :                          '#84cc16';
 
   chrome.action.setBadgeBackgroundColor({ color, tabId });
+  chrome.action.setBadgeTextColor?.({ color: '#ffffff', tabId });
+}
 
-  // Badge text colour (white always)
+// Called after full score calculation — shows definitive score + color
+function updateBadgeFromScore(tabId, score) {
+  const color = scoreToColor(score);
+  const label = String(score); // e.g. "72"
+
+  chrome.action.setBadgeText({ text: label, tabId });
+  chrome.action.setBadgeBackgroundColor({ color, tabId });
   chrome.action.setBadgeTextColor?.({ color: '#ffffff', tabId });
 }
 
@@ -656,7 +676,10 @@ chrome.webRequest.onBeforeRequest.addListener(
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status === 'loading') {
     initTabData(tabId, tab.url || '');
-    chrome.action.setBadgeText({ text: '', tabId });
+    // Grey "scanning" indicator while page loads
+    chrome.action.setBadgeText({ text: '…', tabId });
+    chrome.action.setBadgeBackgroundColor({ color: '#475569', tabId });
+    chrome.action.setBadgeTextColor?.({ color: '#ffffff', tabId });
     notifiedTabs.delete(tabId);
     if (pendingTimers.has(tabId)) {
       clearTimeout(pendingTimers.get(tabId));
@@ -764,6 +787,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         // Re-calc score with real cookie count
         const dataWithRealCookies = { ...d, cookies: { count: cookieCount } };
         const score = calculateScore(dataWithRealCookies);
+
+        // Update badge with definitive score + color
+        updateBadgeFromScore(tabId, score);
 
         // Include first-party note if applicable
         const fpInfo = getFirstPartyPenalty(d.url);
