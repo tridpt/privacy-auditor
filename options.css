@@ -373,6 +373,8 @@ input:checked + .toggle-slider::before { left: calc(100% - 19px); background: va
   border: 1px solid var(--border);
   border-radius: var(--r);
   overflow: hidden;
+  max-height: 420px;
+  overflow-y: auto;
 }
 .db-entry {
   display: flex; align-items: center; gap: 12px;
