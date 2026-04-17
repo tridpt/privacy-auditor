@@ -122,13 +122,11 @@ const NOTIFY_THRESHOLD = 45; // score below this triggers alert
 const NOTIFY_DELAY_MS  = 3500; // wait for network requests to settle
 
 function maybeNotify(tabId) {
-  console.log('[PA] maybeNotify()', tabId);
-  if (notifiedTabs.has(tabId)) { console.log('[PA] already notified'); return; }
-  if (!tabData.has(tabId))     { console.log('[PA] no tab data');      return; }
+  if (notifiedTabs.has(tabId)) return;
+  if (!tabData.has(tabId))     return;
 
   const d     = tabData.get(tabId);
   const score = calculateScore(d);
-  console.log('[PA] score:', score, '| trackers:', d.trackers.size, '| threshold:', NOTIFY_THRESHOLD);
   if (score >= NOTIFY_THRESHOLD) return;
 
   notifiedTabs.add(tabId);
@@ -136,10 +134,8 @@ function maybeNotify(tabId) {
   const trackerCount = d.trackers.size;
   const hostname     = getDomain(d.url || '') || 'This page';
   const grade        = score < 20 ? 'Very Invasive' : 'Bad Privacy';
-  const notifId      = `pa-${tabId}-${Date.now()}`;
 
-  console.log('[PA] Creating notification:', notifId);
-  chrome.notifications.create(notifId, {
+  chrome.notifications.create(`pa-${tabId}-${Date.now()}`, {
     type:     'basic',
     iconUrl:  'icons/icon48.png',
     title:    `⚠️ Privacy Alert — ${grade} (${score}/100)`,
@@ -148,8 +144,6 @@ function maybeNotify(tabId) {
   }, (id) => {
     if (chrome.runtime.lastError) {
       console.error('[PA] Notification error:', chrome.runtime.lastError.message);
-    } else {
-      console.log('[PA] Notification shown:', id);
     }
   });
 }
@@ -157,13 +151,13 @@ function maybeNotify(tabId) {
 // Schedule a delayed notification (resets timer each call, fires once)
 function scheduleNotify(tabId) {
   if (notifiedTabs.has(tabId)) return;
-  console.log('[PA] scheduleNotify()', tabId);
   if (pendingTimers.has(tabId)) clearTimeout(pendingTimers.get(tabId));
   const handle = setTimeout(() => {
     pendingTimers.delete(tabId);
     maybeNotify(tabId);
   }, NOTIFY_DELAY_MS);
   pendingTimers.set(tabId, handle);
+
 }
 
 const TRACKERS = {
