@@ -1,0 +1,364 @@
+// ============================================================
+//  Privacy Auditor – Background Service Worker
+// ============================================================
+
+const TRACKERS = {
+  // ── Google ──────────────────────────────────────────────
+  'google-analytics.com':     { name: 'Google Analytics',     category: 'Analytics',         risk: 'medium' },
+  'googletagmanager.com':     { name: 'Google Tag Manager',   category: 'Tag Manager',       risk: 'medium' },
+  'googlesyndication.com':    { name: 'Google AdSense',       category: 'Advertising',       risk: 'high'   },
+  'doubleclick.net':          { name: 'Google DoubleClick',   category: 'Advertising',       risk: 'high'   },
+  'googleadservices.com':     { name: 'Google Ad Services',   category: 'Advertising',       risk: 'high'   },
+  'adservice.google.com':     { name: 'Google Ad Service',    category: 'Advertising',       risk: 'high'   },
+  'pagead2.googlesyndication.com': { name: 'Google PageAd',  category: 'Advertising',       risk: 'high'   },
+
+  // ── Meta / Facebook ──────────────────────────────────────
+  'connect.facebook.net':     { name: 'Facebook Pixel',       category: 'Advertising',       risk: 'high'   },
+  'facebook.com':             { name: 'Facebook SDK',         category: 'Social',            risk: 'medium' },
+  'fbcdn.net':                { name: 'Facebook CDN',         category: 'Social',            risk: 'medium' },
+  'graph.facebook.com':       { name: 'Facebook Graph API',   category: 'Social',            risk: 'medium' },
+
+  // ── Session Recorders ────────────────────────────────────
+  'hotjar.com':               { name: 'Hotjar',               category: 'Session Recording', risk: 'critical' },
+  'static.hotjar.com':        { name: 'Hotjar',               category: 'Session Recording', risk: 'critical' },
+  'vars.hotjar.com':          { name: 'Hotjar',               category: 'Session Recording', risk: 'critical' },
+  'fullstory.com':            { name: 'FullStory',            category: 'Session Recording', risk: 'critical' },
+  'rs.fullstory.com':         { name: 'FullStory',            category: 'Session Recording', risk: 'critical' },
+  'clarity.ms':               { name: 'Microsoft Clarity',   category: 'Session Recording', risk: 'critical' },
+  'c.clarity.ms':             { name: 'Microsoft Clarity',   category: 'Session Recording', risk: 'critical' },
+  'crazyegg.com':             { name: 'Crazy Egg',            category: 'Session Recording', risk: 'critical' },
+  'luckyorange.com':          { name: 'Lucky Orange',         category: 'Session Recording', risk: 'critical' },
+  'mouseflow.com':            { name: 'Mouseflow',            category: 'Session Recording', risk: 'critical' },
+  'logrocket.com':            { name: 'LogRocket',            category: 'Session Recording', risk: 'critical' },
+
+  // ── Analytics SDKs ───────────────────────────────────────
+  'mixpanel.com':             { name: 'Mixpanel',             category: 'Analytics',         risk: 'medium' },
+  'cdn.mxpnl.com':            { name: 'Mixpanel CDN',         category: 'Analytics',         risk: 'medium' },
+  'segment.com':              { name: 'Segment',              category: 'Analytics',         risk: 'medium' },
+  'cdn.segment.com':          { name: 'Segment CDN',          category: 'Analytics',         risk: 'medium' },
+  'api.segment.io':           { name: 'Segment API',          category: 'Analytics',         risk: 'medium' },
+  'amplitude.com':            { name: 'Amplitude',            category: 'Analytics',         risk: 'medium' },
+  'api.amplitude.com':        { name: 'Amplitude API',        category: 'Analytics',         risk: 'medium' },
+  'heapanalytics.com':        { name: 'Heap Analytics',       category: 'Analytics',         risk: 'medium' },
+  'cdn.heapanalytics.com':    { name: 'Heap Analytics CDN',   category: 'Analytics',         risk: 'medium' },
+  'sentry.io':                { name: 'Sentry',               category: 'Monitoring',        risk: 'low'    },
+  'cloudflareinsights.com':   { name: 'Cloudflare Analytics', category: 'Analytics',         risk: 'low'    },
+  'newrelic.com':             { name: 'New Relic',            category: 'Monitoring',        risk: 'low'    },
+  'scorecardresearch.com':    { name: 'Comscore',             category: 'Analytics',         risk: 'medium' },
+
+  // ── LinkedIn ───────────────────────────────────────────────
+  'snap.licdn.com':           { name: 'LinkedIn Insight Tag', category: 'Advertising',       risk: 'high'   },
+  'px.ads.linkedin.com':      { name: 'LinkedIn Ads',         category: 'Advertising',       risk: 'high'   },
+
+  // ── Twitter / X ──────────────────────────────────────────
+  'ads-twitter.com':          { name: 'Twitter/X Ads',        category: 'Advertising',       risk: 'high'   },
+  'static.ads-twitter.com':   { name: 'Twitter/X Ads',        category: 'Advertising',       risk: 'high'   },
+  'platform.twitter.com':     { name: 'Twitter Widget',       category: 'Social',            risk: 'medium' },
+
+  // ── TikTok ───────────────────────────────────────────────
+  'analytics.tiktok.com':     { name: 'TikTok Pixel',         category: 'Advertising',       risk: 'high'   },
+  'business-api.tiktok.com':  { name: 'TikTok Business API',  category: 'Advertising',       risk: 'high'   },
+
+  // ── Criteo ───────────────────────────────────────────────
+  'criteo.com':               { name: 'Criteo',               category: 'Advertising',       risk: 'high'   },
+  'static.criteo.net':        { name: 'Criteo',               category: 'Advertising',       risk: 'high'   },
+
+  // ── Ad Networks ──────────────────────────────────────────
+  'adnxs.com':                { name: 'Xandr / AppNexus',     category: 'Advertising',       risk: 'high'   },
+  'quantserve.com':           { name: 'Quantcast',            category: 'Advertising',       risk: 'high'   },
+  'moatads.com':              { name: 'Moat / Oracle Data',   category: 'Advertising',       risk: 'high'   },
+  'taboola.com':              { name: 'Taboola',              category: 'Advertising',       risk: 'high'   },
+  'outbrain.com':             { name: 'Outbrain',             category: 'Advertising',       risk: 'high'   },
+  'rubiconproject.com':       { name: 'Rubicon Project',      category: 'Advertising',       risk: 'high'   },
+  'pubmatic.com':             { name: 'PubMatic',             category: 'Advertising',       risk: 'high'   },
+  'openx.net':                { name: 'OpenX',                category: 'Advertising',       risk: 'high'   },
+
+  // ── Social ────────────────────────────────────────────────
+  'ct.pinterest.com':         { name: 'Pinterest Tag',        category: 'Advertising',       risk: 'high'   },
+  'sc-static.net':            { name: 'Snapchat Pixel',       category: 'Advertising',       risk: 'high'   },
+
+  // ── A/B Testing ──────────────────────────────────────────
+  'optimizely.com':           { name: 'Optimizely',           category: 'A/B Testing',       risk: 'medium' },
+  'vwo.com':                  { name: 'VWO',                  category: 'A/B Testing',       risk: 'medium' },
+  'launchdarkly.com':         { name: 'LaunchDarkly',         category: 'A/B Testing',       risk: 'low'    },
+
+  // ── CRM / Chat ────────────────────────────────────────────
+  'intercom.io':              { name: 'Intercom',             category: 'Chat / CRM',        risk: 'low'    },
+  'js.intercomcdn.com':       { name: 'Intercom CDN',         category: 'Chat / CRM',        risk: 'low'    },
+  'drift.com':                { name: 'Drift',                category: 'Chat / CRM',        risk: 'low'    },
+  'driftt.com':               { name: 'Drift',                category: 'Chat / CRM',        risk: 'low'    },
+  'zd-cdn.com':               { name: 'Zendesk',              category: 'Chat / CRM',        risk: 'low'    },
+};
+
+// ── In-memory tab data store ─────────────────────────────────
+const tabData = new Map();
+
+function initTabData(tabId, url = '') {
+  tabData.set(tabId, {
+    trackers:      new Map(),
+    requests:      { total: 0, external: 0 },
+    fingerprinting: new Set(),
+    cookies:       { count: 0 },
+    localStorage:  0,
+    sessionStorage: 0,
+    url,
+    timestamp:     Date.now(),
+  });
+}
+
+// ── Helpers ──────────────────────────────────────────────────
+function getDomain(url) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return null;
+  }
+}
+
+function matchTracker(domain) {
+  if (!domain) return null;
+  if (TRACKERS[domain]) return TRACKERS[domain];
+  for (const [td, info] of Object.entries(TRACKERS)) {
+    if (domain.endsWith('.' + td)) return info;
+  }
+  return null;
+}
+
+// ── Corporate domain families ─────────────────────────────────
+// If a request comes from the SAME company as the page, it's not
+// a third-party tracker (e.g. fbcdn.net when on facebook.com).
+const DOMAIN_FAMILIES = [
+  // Meta
+  ['facebook.com', 'fbcdn.net', 'instagram.com', 'cdninstagram.com',
+   'whatsapp.com', 'meta.com', 'fb.com', 'fb.watch', 'connect.facebook.net'],
+  // Google
+  ['google.com', 'googleapis.com', 'gstatic.com', 'googleusercontent.com',
+   'youtube.com', 'ytimg.com', 'googlevideo.com', 'ggpht.com',
+   'googletagmanager.com', 'google-analytics.com', 'googlesyndication.com',
+   'doubleclick.net', 'googleadservices.com'],
+  // Twitter / X
+  ['twitter.com', 'twimg.com', 'x.com', 't.co', 'ads-twitter.com'],
+  // Microsoft
+  ['microsoft.com', 'msn.com', 'bing.com', 'live.com', 'azure.com',
+   'clarity.ms', 'hotmail.com', 'outlook.com'],
+  // Amazon
+  ['amazon.com', 'amazonaws.com', 'amazon-adsystem.com', 'cloudfront.net'],
+  // LinkedIn
+  ['linkedin.com', 'licdn.com', 'snap.licdn.com'],
+  // TikTok / ByteDance
+  ['tiktok.com', 'tiktokcdn.com', 'analytics.tiktok.com'],
+];
+
+function isSameFamily(domainA, domainB) {
+  if (!domainA || !domainB) return false;
+  const matches = (d, candidate) =>
+    d === candidate || d.endsWith('.' + candidate) || candidate.endsWith('.' + d);
+  for (const family of DOMAIN_FAMILIES) {
+    const aIn = family.some(f => matches(domainA, f));
+    const bIn = family.some(f => matches(domainB, f));
+    if (aIn && bIn) return true;
+  }
+  return false;
+}
+
+// ── Known first-party data collectors ───────────────────────
+// These sites ARE the tracker — penalise even when on their domain.
+const FIRST_PARTY_PENALTY = [
+  { domain: 'facebook.com',  penalty: 30, note: 'Meta (Facebook) collects extensive first-party data' },
+  { domain: 'instagram.com', penalty: 25, note: 'Meta (Instagram) collects extensive first-party data' },
+  { domain: 'tiktok.com',    penalty: 28, note: 'TikTok collects extensive behavioural data' },
+  { domain: 'twitter.com',   penalty: 20, note: 'Twitter/X collects first-party tracking data' },
+  { domain: 'x.com',         penalty: 20, note: 'Twitter/X collects first-party tracking data' },
+  { domain: 'linkedin.com',  penalty: 18, note: 'LinkedIn tracks behaviour for ad targeting' },
+  { domain: 'google.com',    penalty: 15, note: 'Google collects search & browsing data' },
+  { domain: 'youtube.com',   penalty: 15, note: 'YouTube tracks watch history & behaviour' },
+];
+
+function getFirstPartyPenalty(url) {
+  if (!url) return { penalty: 0, note: null };
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, '');
+    for (const entry of FIRST_PARTY_PENALTY) {
+      if (host === entry.domain || host.endsWith('.' + entry.domain)) {
+        return entry;
+      }
+    }
+  } catch (_) {}
+  return { penalty: 0, note: null };
+}
+
+function calculateScore(data) {
+  let score = 100;
+  const trackers = [...data.trackers.values()];
+
+  // Tracker penalties
+  score -= Math.min(trackers.length * 5, 35);
+
+  // Session recording is very invasive
+  if (trackers.some(t => t.risk === 'critical')) score -= 20;
+
+  // High-risk trackers
+  const highRisk = trackers.filter(t => t.risk === 'high').length;
+  score -= Math.min(highRisk * 2, 10);
+
+  // First-party penalty (site itself is a data collector)
+  const fp = getFirstPartyPenalty(data.url);
+  score -= fp.penalty;
+
+  // Fingerprinting
+  const fpCount = data.fingerprinting.size;
+  if (fpCount > 0) score -= Math.min(fpCount * 5, 15);
+
+  // External requests – stricter tiers
+  const ext = data.requests.external;
+  if      (ext > 200) score -= 28;
+  else if (ext > 100) score -= 22;
+  else if (ext >  50) score -= 16;
+  else if (ext >  25) score -= 10;
+  else if (ext >  10) score -= 5;
+  else if (ext >   5) score -= 2;
+
+  // Cookies
+  const ck = data.cookies.count;
+  if      (ck > 30) score -= 10;
+  else if (ck > 15) score -= 5;
+  else if (ck >  5) score -= 2;
+
+  return Math.max(0, Math.round(score));
+}
+
+// ── Network request monitor ──────────────────────────────────
+chrome.webRequest.onBeforeRequest.addListener(
+  (details) => {
+    const { tabId, url, initiator } = details;
+    if (tabId < 0 || !url) return;
+
+    if (!tabData.has(tabId)) initTabData(tabId);
+    const data = tabData.get(tabId);
+
+    data.requests.total++;
+
+    const reqDomain  = getDomain(url);
+    const pageDomain = getDomain(initiator || data.url || '');
+
+    // Count as external only if truly a different org
+    const isSubdomain = reqDomain && pageDomain &&
+      (reqDomain.endsWith('.' + pageDomain) || pageDomain.endsWith('.' + reqDomain));
+
+    if (reqDomain && pageDomain && reqDomain !== pageDomain
+        && !isSubdomain
+        && !isSameFamily(reqDomain, pageDomain)) {
+
+      data.requests.external++;
+
+      const tracker = matchTracker(reqDomain);
+      if (tracker) {
+        const key = tracker.name + '|' + tracker.category;
+        if (!data.trackers.has(key)) {
+          data.trackers.set(key, { ...tracker, domain: reqDomain, requestCount: 0 });
+        }
+        data.trackers.get(key).requestCount++;
+      }
+    }
+  },
+  { urls: ['<all_urls>'] }
+);
+
+// ── Tab lifecycle ────────────────────────────────────────────
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status === 'loading') {
+    initTabData(tabId, tab.url || '');
+  }
+});
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+  tabData.delete(tabId);
+});
+
+// ── Message handler ───────────────────────────────────────────
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  const senderTabId = sender.tab?.id;
+
+  switch (message.type) {
+
+    case 'FINGERPRINT_DETECTED': {
+      if (!senderTabId || senderTabId < 0) break;
+      if (!tabData.has(senderTabId)) initTabData(senderTabId);
+      tabData.get(senderTabId).fingerprinting.add(message.api);
+      break;
+    }
+
+    case 'PAGE_SCAN': {
+      if (!senderTabId || senderTabId < 0) break;
+      if (!tabData.has(senderTabId)) initTabData(senderTabId);
+      const d = tabData.get(senderTabId);
+
+      if (message.cookies)       d.cookies       = message.cookies;
+      if (message.localStorage  !== undefined) d.localStorage  = message.localStorage;
+      if (message.sessionStorage !== undefined) d.sessionStorage = message.sessionStorage;
+
+      // Scan <script src> tags reported by content script
+      // Skip same-family CDN domains (e.g. fbcdn.net when on facebook.com)
+      if (Array.isArray(message.scriptUrls)) {
+        const pageDomain = getDomain(d.url || '');
+        for (const url of message.scriptUrls) {
+          const domain  = getDomain(url);
+          if (!domain || isSameFamily(domain, pageDomain)) continue; // ← fix
+          const tracker = matchTracker(domain);
+          if (tracker) {
+            const key = tracker.name + '|' + tracker.category;
+            if (!d.trackers.has(key)) {
+              d.trackers.set(key, { ...tracker, domain, requestCount: 0 });
+            }
+          }
+        }
+      }
+      break;
+    }
+
+    case 'GET_DATA': {
+      const tabId = message.tabId;
+      if (!tabData.has(tabId)) {
+        sendResponse(null);
+        return true;
+      }
+
+      // Async: fetch accurate cookie count via chrome.cookies API
+      // (reads HttpOnly + secure cookies that document.cookie cannot)
+      ;(async () => {
+        const d = tabData.get(tabId);
+
+        let cookieCount = d.cookies.count;
+        try {
+          if (d.url && (d.url.startsWith('http://') || d.url.startsWith('https://'))) {
+            const allCookies = await chrome.cookies.getAll({ url: d.url });
+            cookieCount = allCookies.length;
+          }
+        } catch (_) {}
+
+        // Re-calc score with real cookie count
+        const dataWithRealCookies = { ...d, cookies: { count: cookieCount } };
+        const score = calculateScore(dataWithRealCookies);
+
+        // Include first-party note if applicable
+        const fpInfo = getFirstPartyPenalty(d.url);
+
+        sendResponse({
+          score,
+          trackers:         [...d.trackers.values()],
+          fingerprinting:   [...d.fingerprinting],
+          requests:         d.requests,
+          cookies:          { count: cookieCount },
+          localStorage:     d.localStorage,
+          sessionStorage:   d.sessionStorage,
+          timestamp:        d.timestamp,
+          firstPartyNote:   fpInfo.note || null,
+        });
+      })();
+
+      return true; // keep message port open for async response
+    }
+  }
+
+  return false;
+});

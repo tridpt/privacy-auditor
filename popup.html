@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Auditor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+<div class="app">
+
+  <!-- ── Header ───────────────────────────────────────────── -->
+  <header class="header">
+    <div class="logo">
+      <div class="logo-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+      </div>
+      <span class="logo-text">Privacy Auditor</span>
+    </div>
+    <button id="refreshBtn" class="icon-btn" title="Re-scan page">
+      <svg id="refreshIcon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+      </svg>
+    </button>
+  </header>
+
+  <!-- ── Loading ──────────────────────────────────────────── -->
+  <div id="loadingState" class="center-state">
+    <div class="spinner"></div>
+    <p class="state-text">Analyzing page…</p>
+  </div>
+
+  <!-- ── Error ────────────────────────────────────────────── -->
+  <div id="errorState" class="center-state hidden">
+    <div class="state-icon">⚠️</div>
+    <p class="state-text">Cannot analyze this page</p>
+    <small class="state-sub">Navigate to a regular website to start auditing</small>
+  </div>
+
+  <!-- ── No-data ──────────────────────────────────────────── -->
+  <div id="nodataState" class="center-state hidden">
+    <div class="state-icon">🔄</div>
+    <p class="state-text">No data captured yet</p>
+    <small class="state-sub">Reload the page to start monitoring</small>
+    <button id="reloadPageBtn" class="pill-btn">Reload Page</button>
+  </div>
+
+  <!-- ── Main Content ─────────────────────────────────────── -->
+  <div id="mainContent" class="main-content hidden">
+
+    <!-- Score gauge -->
+    <div class="score-section">
+      <div class="gauge-wrap">
+        <svg class="gauge-svg" viewBox="0 0 220 130" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <filter id="glow">
+              <feGaussianBlur stdDeviation="3" result="blur"/>
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+          <!-- track -->
+          <path d="M 25 115 A 85 85 0 0 1 195 115"
+                fill="none" stroke="#1e293b" stroke-width="13" stroke-linecap="round"/>
+          <!-- progress arc -->
+          <path id="scoreArc"
+                d="M 25 115 A 85 85 0 0 1 195 115"
+                fill="none" stroke="#6366f1" stroke-width="13"
+                stroke-linecap="round"
+                stroke-dasharray="0 268"
+                filter="url(#glow)"/>
+          <!-- score number -->
+          <text id="scoreNum" x="110" y="98" text-anchor="middle" class="svg-score">0</text>
+          <text x="110" y="116" text-anchor="middle" class="svg-label">/ 100</text>
+        </svg>
+      </div>
+
+      <div id="scoreGrade" class="score-grade">—</div>
+      <div id="siteHostname" class="site-host"></div>
+      <div id="firstPartyBanner" class="fp-banner hidden"></div>
+    </div>
+
+    <!-- Stats bar -->
+    <div class="stats-row">
+      <div class="stat-card" id="cardTrackers">
+        <div class="stat-val" id="statTrackers">0</div>
+        <div class="stat-lbl">Trackers</div>
+      </div>
+      <div class="stat-card" id="cardFP">
+        <div class="stat-val" id="statFP">0</div>
+        <div class="stat-lbl">Fingerprint</div>
+      </div>
+      <div class="stat-card" id="cardCookies">
+        <div class="stat-val" id="statCookies">0</div>
+        <div class="stat-lbl">Cookies</div>
+      </div>
+      <div class="stat-card" id="cardExtReq">
+        <div class="stat-val" id="statExtReq">0</div>
+        <div class="stat-lbl">Ext. Requests</div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs" role="tablist">
+      <button class="tab-btn active" data-tab="trackers"    role="tab">Trackers</button>
+      <button class="tab-btn"        data-tab="fingerprint" role="tab">Fingerprint</button>
+      <button class="tab-btn"        data-tab="details"     role="tab">Details</button>
+    </div>
+
+    <!-- Tab: Trackers -->
+    <div id="trackersTab" class="tab-pane active" role="tabpanel">
+      <div id="trackerList" class="item-list"></div>
+      <div id="noTrackers" class="empty-state hidden">
+        <span>✅</span>
+        <p>No known trackers detected!</p>
+      </div>
+    </div>
+
+    <!-- Tab: Fingerprint -->
+    <div id="fingerprintTab" class="tab-pane hidden" role="tabpanel">
+      <div id="fpList" class="item-list"></div>
+      <div id="noFP" class="empty-state hidden">
+        <span>✅</span>
+        <p>No fingerprinting detected</p>
+      </div>
+    </div>
+
+    <!-- Tab: Details -->
+    <div id="detailsTab" class="tab-pane hidden" role="tabpanel">
+      <div class="detail-grid">
+        <div class="detail-card">
+          <div class="detail-icon">🍪</div>
+          <div class="detail-body">
+            <div class="detail-title">Cookies</div>
+            <div class="detail-val" id="dCookies">—</div>
+          </div>
+        </div>
+        <div class="detail-card">
+          <div class="detail-icon">💾</div>
+          <div class="detail-body">
+            <div class="detail-title">LocalStorage</div>
+            <div class="detail-val" id="dLS">—</div>
+          </div>
+        </div>
+        <div class="detail-card">
+          <div class="detail-icon">🌐</div>
+          <div class="detail-body">
+            <div class="detail-title">External Requests</div>
+            <div class="detail-val" id="dExtReq">—</div>
+          </div>
+        </div>
+        <div class="detail-card">
+          <div class="detail-icon">📦</div>
+          <div class="detail-body">
+            <div class="detail-title">Total Requests</div>
+            <div class="detail-val" id="dTotalReq">—</div>
+          </div>
+        </div>
+        <div class="detail-card">
+          <div class="detail-icon">📋</div>
+          <div class="detail-body">
+            <div class="detail-title">SessionStorage</div>
+            <div class="detail-val" id="dSS">—</div>
+          </div>
+        </div>
+        <div class="detail-card">
+          <div class="detail-icon">🎯</div>
+          <div class="detail-body">
+            <div class="detail-title">Session Recorders</div>
+            <div class="detail-val" id="dRecorders">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main-content -->
+
+  <!-- Footer -->
+  <footer class="footer">
+    <span>Privacy Auditor v1.0</span>
+    <span id="footerTime" class="footer-time"></span>
+  </footer>
+
+</div><!-- /app -->
+<script src="popup.js"></script>
+</body>
+</html>
