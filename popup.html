@@ -100,6 +100,45 @@
       ✅ Whitelisted — blocking &amp; alerts paused for this site
     </div>
 
+    <!-- AI Analyze button -->
+    <button id="aiAnalyzeBtn" class="ai-analyze-btn hidden">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 8v4l3 3"/>
+        <circle cx="18" cy="5" r="3" fill="currentColor" stroke="none"/>
+      </svg>
+      Analyze with Gemini AI
+    </button>
+
+    <!-- AI result panel -->
+    <div id="aiPanel" class="ai-panel hidden">
+      <div id="aiLoading" class="ai-loading hidden">
+        <div class="ai-spinner"></div>
+        <span>Gemini is analyzing…</span>
+      </div>
+      <div id="aiContent" class="ai-content hidden">
+        <div class="ai-verdict-row">
+          <span id="aiVerdict" class="ai-verdict-badge"></span>
+          <button id="aiCloseBtn" class="ai-dismiss-btn">✕</button>
+        </div>
+        <div class="ai-section">
+          <div class="ai-section-label">📋 Tóm tắt</div>
+          <div id="aiSummary" class="ai-text"></div>
+        </div>
+        <div class="ai-section">
+          <div class="ai-section-label">⚠️ Rủi ro</div>
+          <ul id="aiRisks" class="ai-list"></ul>
+        </div>
+        <div class="ai-section">
+          <div class="ai-section-label">💡 Khuyến nghị</div>
+          <ul id="aiRecommendations" class="ai-list"></ul>
+        </div>
+      </div>
+      <div id="aiError" class="ai-error hidden">
+        <span id="aiErrorMsg"></span>
+        <button id="aiErrorSettingsBtn" class="ai-settings-link hidden">⚙️ Set API Key</button>
+      </div>
+    </div>
+
     <!-- Stats bar -->
     <div class="stats-row">
       <div class="stat-card" id="cardTrackers">

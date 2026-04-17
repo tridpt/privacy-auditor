@@ -160,9 +160,35 @@ document.getElementById('resetAllBtn').addEventListener('click', async () => {
   setTimeout(() => location.reload(), 800);
 });
 
+// ── AI Analysis section ──────────────────────────────────────
+const geminiKeyInput = document.getElementById('geminiApiKey');
+const apiKeyStatus   = document.getElementById('apiKeyStatus');
+
+document.getElementById('toggleKeyVisibility').addEventListener('click', () => {
+  geminiKeyInput.type = geminiKeyInput.type === 'password' ? 'text' : 'password';
+});
+
+document.getElementById('saveApiKeyBtn').addEventListener('click', async () => {
+  const key = geminiKeyInput.value.trim();
+  if (!key) { apiKeyStatus.textContent = '✗ Enter an API key first'; apiKeyStatus.className = 'api-key-status err'; return; }
+  await chrome.storage.local.set({ geminiApiKey: key });
+  apiKeyStatus.textContent = '✓ Saved';
+  apiKeyStatus.className = 'api-key-status ok';
+  setTimeout(() => { apiKeyStatus.textContent = ''; apiKeyStatus.className = 'api-key-status'; }, 3000);
+});
+
+document.getElementById('aiLanguage').addEventListener('change', async (e) => {
+  await chrome.storage.local.set({ aiLanguage: e.target.value });
+  showSaved();
+});
+
 // ── Init ──────────────────────────────────────────────────────
 (async () => {
   await loadSettings();
   await loadWhitelist();
   await loadCustomRules();
+  // Load AI settings
+  const { geminiApiKey, aiLanguage } = await chrome.storage.local.get(['geminiApiKey', 'aiLanguage']);
+  if (geminiApiKey) geminiKeyInput.value = geminiApiKey;
+  if (aiLanguage)   document.getElementById('aiLanguage').value = aiLanguage;
 })();

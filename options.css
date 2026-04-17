@@ -278,3 +278,39 @@ input:checked + .toggle-slider::before { left: calc(100% - 19px); background: va
 
 /* ── Animation ───────────────────────────────────────────────── */
 @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* ── AI Analysis section ────────────────────────────────── */
+.inline-link { color: #818cf8; text-decoration: none; }
+.inline-link:hover { text-decoration: underline; }
+
+.api-key-row {
+  display: flex; gap: 8px; width: 100%;
+}
+.toggle-key-btn {
+  background: var(--card-h); border: 1px solid var(--border2);
+  border-radius: 8px; color: var(--txt2);
+  cursor: pointer; padding: 0 12px; font-size: 14px;
+  transition: all var(--transition); flex-shrink: 0;
+}
+.toggle-key-btn:hover { color: var(--txt); }
+
+.api-key-status {
+  font-size: 12px; min-height: 16px;
+  transition: all var(--transition);
+}
+.api-key-status.ok  { color: #86efac; }
+.api-key-status.err { color: #fca5a5; }
+
+.select-input {
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  color: var(--txt);
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  padding: 8px 12px;
+  outline: none; cursor: pointer;
+  transition: border-color var(--transition);
+  flex-shrink: 0;
+}
+.select-input:focus { border-color: var(--accent); }

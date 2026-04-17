@@ -337,6 +337,134 @@ document.getElementById('clearHistoryBtn').addEventListener('click', async () =>
   renderHistory();
 });
 
+// ── AI Analysis (Gemini) ──────────────────────────────────────
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+
+function buildPrompt(data, hostname, language) {
+  const trackerList = (data.trackers ?? []).map(t =>
+    `- ${t.name} [${t.category}] Risk:${t.risk.toUpperCase()}${(data.blocked??[]).some(b=>b===t.name+'|'+t.category)?' (BLOCKED)':''}`
+  ).join('\n') || '- None detected';
+
+  const fpList = (data.fingerprinting ?? []).map(f => `- ${f.technique}`).join('\n') || '- None';
+
+  return `You are a privacy security expert. Analyze this website privacy scan and explain in ${language}.
+
+Website: ${hostname}
+Privacy Score: ${data.score}/100
+Grade: ${data.score < 20 ? 'Critical' : data.score < 40 ? 'Bad' : data.score < 60 ? 'Poor' : data.score < 80 ? 'Fair' : 'Good'}
+
+TRACKERS (${(data.trackers??[]).length}):
+${trackerList}
+
+FINGERPRINTING:
+${fpList}
+
+STORAGE: localStorage=${data.localStorage??0} keys, sessionStorage=${data.sessionStorage??0} keys
+COOKIES: ~${data.cookies?.count ?? 'unknown'}
+EXTERNAL REQUESTS: ${data.requests?.external ?? 0}
+
+Respond ONLY with valid JSON (no markdown, no code blocks):
+{
+  "summary": "2-3 sentences in ${language} explaining what this site does with user data",
+  "risks": ["risk 1 in ${language}", "risk 2", "risk 3"],
+  "recommendations": ["action 1 in ${language}", "action 2", "action 3"],
+  "verdict": "SAFE or CAUTION or DANGER"
+}`;
+}
+
+async function runAiAnalysis() {
+  if (!currentData || !currentHostname) return;
+
+  const { geminiApiKey, aiLanguage = 'Vietnamese' } = await chrome.storage.local.get(['geminiApiKey', 'aiLanguage']);
+
+  const panel   = document.getElementById('aiPanel');
+  const loading = document.getElementById('aiLoading');
+  const content = document.getElementById('aiContent');
+  const errEl   = document.getElementById('aiError');
+  const errMsg  = document.getElementById('aiErrorMsg');
+  const errBtn  = document.getElementById('aiErrorSettingsBtn');
+
+  // Reset state
+  panel.classList.remove('hidden');
+  loading.classList.remove('hidden');
+  content.classList.add('hidden');
+  errEl.classList.add('hidden');
+  errBtn.classList.add('hidden');
+  document.getElementById('aiAnalyzeBtn').disabled = true;
+
+  if (!geminiApiKey) {
+    loading.classList.add('hidden');
+    errMsg.textContent = '⚠️ Gemini API key not set.';
+    errEl.classList.remove('hidden');
+    errBtn.classList.remove('hidden');
+    document.getElementById('aiAnalyzeBtn').disabled = false;
+    return;
+  }
+
+  try {
+    const prompt = buildPrompt(currentData, currentHostname, aiLanguage);
+    const resp = await fetch(`${GEMINI_URL}?key=${geminiApiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.4, maxOutputTokens: 600 },
+      }),
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err?.error?.message ?? `HTTP ${resp.status}`);
+    }
+
+    const json = await resp.json();
+    const raw  = json?.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+
+    // Parse JSON from response (strip possible code fences)
+    const cleaned = raw.replace(/```json|```/g, '').trim();
+    let result;
+    try { result = JSON.parse(cleaned); }
+    catch { throw new Error('Không thể parse kết quả từ Gemini. Thử lại.'); }
+
+    // Render verdict
+    const verdictEl = document.getElementById('aiVerdict');
+    const verdict   = (result.verdict ?? '').toUpperCase();
+    const verdictMap = { SAFE: ['verdict-safe','✅ An toàn'], CAUTION: ['verdict-caution','⚠️ Cảnh báo'], DANGER: ['verdict-danger','🔴 Nguy hiểm'] };
+    const [cls, label] = verdictMap[verdict] ?? ['verdict-caution', '⚠️ Không xác định'];
+    verdictEl.className = 'ai-verdict-badge ' + cls;
+    verdictEl.textContent = label;
+
+    // Render summary
+    document.getElementById('aiSummary').textContent = result.summary ?? '';
+
+    // Render risks
+    document.getElementById('aiRisks').innerHTML = (result.risks ?? []).map(r => `<li>${esc(r)}</li>`).join('');
+
+    // Render recommendations
+    document.getElementById('aiRecommendations').innerHTML = (result.recommendations ?? []).map(r => `<li>${esc(r)}</li>`).join('');
+
+    loading.classList.add('hidden');
+    content.classList.remove('hidden');
+
+  } catch (err) {
+    loading.classList.add('hidden');
+    errMsg.textContent = '❌ ' + (err.message || 'Lỗi không xác định');
+    errEl.classList.remove('hidden');
+  } finally {
+    document.getElementById('aiAnalyzeBtn').disabled = false;
+  }
+}
+
+document.getElementById('aiAnalyzeBtn').addEventListener('click', runAiAnalysis);
+
+document.getElementById('aiCloseBtn').addEventListener('click', () => {
+  document.getElementById('aiPanel').classList.add('hidden');
+});
+
+document.getElementById('aiErrorSettingsBtn').addEventListener('click', () => {
+  chrome.runtime.openOptionsPage();
+});
+
 // ── Whitelist button (current site) ──────────────────────────
 let currentHostname = null;
 
@@ -444,6 +572,9 @@ async function loadData() {
       const wl = new Set(wlResp?.whitelist ?? []);
       updateWhitelistUI(wl.has(currentHostname));
     }
+
+    // Reveal AI button
+    document.getElementById('aiAnalyzeBtn').classList.remove('hidden');
 
     const grade = getGrade(data.score);
     const gradeEl = document.getElementById('scoreGrade');

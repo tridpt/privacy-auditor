@@ -31,6 +31,9 @@
       <a class="nav-item" data-sec="custom-rules" href="#custom-rules">
         <span>⚙️</span> Custom Block Rules
       </a>
+      <a class="nav-item" data-sec="ai-analysis" href="#ai-analysis">
+        <span>🤖</span> AI Analysis
+      </a>
       <a class="nav-item" data-sec="advanced" href="#advanced">
         <span>🔧</span> Advanced
       </a>
@@ -110,6 +113,40 @@
         </div>
         <div id="crList" class="domain-list"></div>
         <div id="crEmpty" class="list-empty">No custom rules. Domains you add here are always blocked.</div>
+      </div>
+    </section>
+
+    <!-- ── AI Analysis ────────────────────────────── -->
+    <section id="ai-analysis" class="section">
+      <h1 class="section-title">🤖 AI Analysis</h1>
+      <p class="section-desc">Use Google Gemini AI to get natural language explanations of privacy scan results. Get your free API key at <a href="https://aistudio.google.com/app/apikey" target="_blank" class="inline-link">Google AI Studio</a>.</p>
+
+      <div class="card">
+        <div class="setting-row" style="flex-direction:column;align-items:flex-start;gap:10px">
+          <div class="setting-info" style="width:100%">
+            <div class="setting-label">Gemini API Key</div>
+            <div class="setting-desc">Your key is stored locally and never sent anywhere except Google's API</div>
+          </div>
+          <div class="api-key-row">
+            <input type="password" id="geminiApiKey" class="text-input" placeholder="AIza..." autocomplete="off">
+            <button id="toggleKeyVisibility" class="toggle-key-btn" title="Show/hide">👁</button>
+            <button id="saveApiKeyBtn" class="add-btn">Save</button>
+          </div>
+          <div id="apiKeyStatus" class="api-key-status"></div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="setting-row">
+          <div class="setting-info">
+            <div class="setting-label">AI Language</div>
+            <div class="setting-desc">Language for AI explanations</div>
+          </div>
+          <select id="aiLanguage" class="select-input">
+            <option value="Vietnamese">🇻🇳 Tiếng Việt</option>
+            <option value="English">🇬🇧 English</option>
+          </select>
+        </div>
       </div>
     </section>
 
