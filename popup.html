@@ -36,8 +36,31 @@
           <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
         </svg>
       </button>
+      <!-- Auto-Rescan -->
+      <div class="auto-rescan-wrap">
+        <button id="autoRescanBtn" class="auto-rescan-btn" title="Toggle auto-rescan">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21.5 2v6h-6M2.5 22v-6h6"/>
+            <path d="M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+          </svg>
+          Auto
+        </button>
+        <select id="autoRescanInterval" class="rescan-select">
+          <option value="5">5s</option>
+          <option value="10" selected>10s</option>
+          <option value="30">30s</option>
+          <option value="60">60s</option>
+        </select>
+      </div>
     </div>
   </header>
+
+  <!-- Auto-Rescan countdown bar -->
+  <div id="rescanBar" class="rescan-bar hidden">
+    <div id="rescanProgress" class="rescan-progress"></div>
+    <span id="rescanCountdown" class="rescan-label">Next scan in 10s</span>
+    <button id="rescanNowBtn" class="rescan-now-btn">Scan now</button>
+  </div>
 
   <!-- ── Loading ──────────────────────────────────────────── -->
   <div id="loadingState" class="center-state">

@@ -838,3 +838,83 @@ body {
   transition: all var(--transition);
 }
 .ai-settings-link:hover { background: rgba(239,68,68,.15); color: #fff; }
+
+/* ── Auto-Rescan ──────────────────────────────────────────── */
+.auto-rescan-wrap {
+  display: flex; align-items: center; gap: 4px;
+}
+
+.auto-rescan-btn {
+  display: flex; align-items: center; gap: 4px;
+  background: var(--card2);
+  border: 1px solid var(--border2);
+  border-radius: 999px;
+  color: var(--txt2);
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  font-size: 10px; font-weight: 700;
+  letter-spacing: .3px;
+  padding: 4px 9px;
+  transition: all var(--transition);
+}
+.auto-rescan-btn:hover { color: var(--txt); border-color: #6366f1; }
+.auto-rescan-btn.active {
+  background: rgba(99,102,241,.2);
+  border-color: rgba(99,102,241,.6);
+  color: #a5b4fc;
+  animation: pulse-border 2s ease infinite;
+}
+@keyframes pulse-border {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(99,102,241,.3); }
+  50%       { box-shadow: 0 0 0 4px rgba(99,102,241,0); }
+}
+
+.rescan-select {
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  color: var(--txt2);
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  font-size: 10px;
+  padding: 3px 5px;
+  outline: none;
+  transition: all var(--transition);
+}
+.rescan-select:focus { border-color: var(--accent); color: var(--txt); }
+
+/* Countdown bar */
+.rescan-bar {
+  position: relative;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  background: rgba(99,102,241,.07);
+  border-bottom: 1px solid rgba(99,102,241,.18);
+  padding: 5px 12px;
+  overflow: hidden;
+}
+.rescan-progress {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  background: rgba(99,102,241,.12);
+  width: 100%;
+  transform-origin: left;
+  transition: width 1s linear;
+}
+.rescan-label {
+  position: relative;
+  font-size: 11px; color: #a5b4fc; font-weight: 600;
+  z-index: 1;
+}
+.rescan-now-btn {
+  position: relative;
+  background: rgba(99,102,241,.2);
+  border: 1px solid rgba(99,102,241,.35);
+  border-radius: 999px;
+  color: #a5b4fc;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  font-size: 10px; font-weight: 700;
+  padding: 2px 10px;
+  transition: all var(--transition);
+  z-index: 1;
+}
+.rescan-now-btn:hover { background: rgba(99,102,241,.35); color: #fff; }

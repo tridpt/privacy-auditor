@@ -829,5 +829,106 @@ async function exportReport() {
 
 document.getElementById('exportReportBtn').addEventListener('click', exportReport);
 
+// ── Auto-Rescan ───────────────────────────────────────────────
+let autoRescanTimer   = null;
+let autoRescanTick    = null;
+let autoRescanSeconds = 0;
+let autoRescanTotal   = 10;
+
+const autoRescanBtn      = document.getElementById('autoRescanBtn');
+const autoRescanInterval = document.getElementById('autoRescanInterval');
+const rescanBar          = document.getElementById('rescanBar');
+const rescanCountdown    = document.getElementById('rescanCountdown');
+const rescanProgress     = document.getElementById('rescanProgress');
+const rescanNowBtn       = document.getElementById('rescanNowBtn');
+
+function stopAutoRescan() {
+  clearInterval(autoRescanTimer);
+  clearInterval(autoRescanTick);
+  autoRescanTimer = null;
+  autoRescanBtn.classList.remove('active');
+  rescanBar.classList.add('hidden');
+}
+
+function tickCountdown() {
+  autoRescanSeconds--;
+  if (autoRescanSeconds < 0) autoRescanSeconds = 0;
+  const pct = ((autoRescanTotal - autoRescanSeconds) / autoRescanTotal) * 100;
+  rescanProgress.style.width = pct + '%';
+  rescanCountdown.textContent = `Next scan in ${autoRescanSeconds}s`;
+}
+
+function startAutoRescan() {
+  autoRescanTotal   = parseInt(autoRescanInterval.value, 10);
+  autoRescanSeconds = autoRescanTotal;
+
+  rescanBar.classList.remove('hidden');
+  autoRescanBtn.classList.add('active');
+
+  // Reset progress
+  rescanProgress.style.transition = 'none';
+  rescanProgress.style.width = '0%';
+  requestAnimationFrame(() => {
+    rescanProgress.style.transition = 'width 1s linear';
+  });
+
+  rescanCountdown.textContent = `Next scan in ${autoRescanTotal}s`;
+
+  // Tick every second
+  autoRescanTick = setInterval(tickCountdown, 1000);
+
+  // Fire loadData every N seconds
+  autoRescanTimer = setInterval(async () => {
+    autoRescanSeconds = autoRescanTotal;
+    rescanProgress.style.transition = 'none';
+    rescanProgress.style.width = '0%';
+    requestAnimationFrame(() => {
+      rescanProgress.style.transition = 'width 1s linear';
+    });
+    await loadData();
+  }, autoRescanTotal * 1000);
+}
+
+autoRescanBtn.addEventListener('click', () => {
+  if (autoRescanTimer) {
+    stopAutoRescan();
+  } else {
+    startAutoRescan();
+  }
+});
+
+// Changing interval while active → restart
+autoRescanInterval.addEventListener('change', () => {
+  if (autoRescanTimer) {
+    stopAutoRescan();
+    startAutoRescan();
+  }
+});
+
+// "Scan now" — immediate rescan + reset timer
+rescanNowBtn.addEventListener('click', async () => {
+  clearInterval(autoRescanTick);
+  clearInterval(autoRescanTimer);
+  autoRescanSeconds = autoRescanTotal;
+  rescanProgress.style.transition = 'none';
+  rescanProgress.style.width = '0%';
+  requestAnimationFrame(() => {
+    rescanProgress.style.transition = 'width 1s linear';
+  });
+  rescanCountdown.textContent = `Next scan in ${autoRescanTotal}s`;
+  await loadData();
+  // Restart timers
+  autoRescanTick  = setInterval(tickCountdown, 1000);
+  autoRescanTimer = setInterval(async () => {
+    autoRescanSeconds = autoRescanTotal;
+    rescanProgress.style.transition = 'none';
+    rescanProgress.style.width = '0%';
+    requestAnimationFrame(() => {
+      rescanProgress.style.transition = 'width 1s linear';
+    });
+    await loadData();
+  }, autoRescanTotal * 1000);
+});
+
 // ── Boot ──────────────────────────────────────────────────────
 loadData();
