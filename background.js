@@ -78,23 +78,58 @@ async function unblockAll() {
 }
 
 // ── Global auto-block (rule IDs 1–999) ───────────────────────
-// Blocks ALL known tracker domains on EVERY website.
+// Blocks ALL known tracker domains on EVERY website,
+// EXCEPT when the request comes from the tracker's own corporate family.
 const GLOBAL_RULE_ID_START = 1;
 
+// Build a map: trackerDomain → [home domains that should NOT be blocked]
+// (computed lazily after DOMAIN_FAMILIES and TRACKERS are defined)
+function buildFamilyExclusions() {
+  const exclusions = new Map(); // domain → string[]
+  for (const family of DOMAIN_FAMILIES) {
+    for (const member of family) {
+      // Any tracker domain that belongs to this family gets the whole family excluded
+      if (TRACKERS[member] || Object.keys(TRACKERS).some(t => member.endsWith('.' + t) || t.endsWith('.' + member))) {
+        exclusions.set(member, family);
+      }
+    }
+  }
+  return exclusions;
+}
+
 async function enableGlobalProtection(persist = true) {
-  const domains  = Object.keys(TRACKERS);
-  const addRules = domains.map((domain, idx) => ({
-    id:       GLOBAL_RULE_ID_START + idx,
-    priority: 2,
-    action:   { type: 'block' },
-    condition: {
+  const domains    = Object.keys(TRACKERS);
+  const exclusions = buildFamilyExclusions();
+
+  const addRules = domains.map((domain, idx) => {
+    // Find which corporate family this tracker belongs to
+    const familyDomains = exclusions.get(domain) ?? [];
+    // Only keep eTLD+1-style entries (no sub-sub-domains) for excludedInitiatorDomains
+    const excluded = [...new Set(
+      familyDomains.flatMap(f => {
+        // Chrome's excludedInitiatorDomains works on eTLD+1 / hostname level
+        const parts = f.split('.');
+        return parts.length >= 2 ? [parts.slice(-2).join('.')] : [];
+      })
+    )];
+
+    const condition = {
       urlFilter: `||${domain}^`,
       resourceTypes: [
         'script', 'xmlhttprequest', 'ping',
         'image', 'media', 'sub_frame', 'other'
       ],
-    },
-  }));
+    };
+    if (excluded.length > 0) condition.excludedInitiatorDomains = excluded;
+
+    return {
+      id:       GLOBAL_RULE_ID_START + idx,
+      priority: 2,
+      action:   { type: 'block' },
+      condition,
+    };
+  });
+
   const removeRuleIds = domains.map((_, idx) => GLOBAL_RULE_ID_START + idx);
   try {
     await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds, addRules });
