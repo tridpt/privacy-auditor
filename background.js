@@ -337,19 +337,106 @@ const TRACKERS = {
 
   // ── Social ────────────────────────────────────────────────
   'ct.pinterest.com':         { name: 'Pinterest Tag',        category: 'Advertising',       risk: 'high'   },
-  'sc-static.net':            { name: 'Snapchat Pixel',       category: 'Advertising',       risk: 'high'   },
+  'sc-static.net':            { name: 'Snapchat Pixel',         category: 'Advertising',          risk: 'high',     desc: 'Snapchat conversion tracking pixel' },
 
   // ── A/B Testing ──────────────────────────────────────────
-  'optimizely.com':           { name: 'Optimizely',           category: 'A/B Testing',       risk: 'medium' },
-  'vwo.com':                  { name: 'VWO',                  category: 'A/B Testing',       risk: 'medium' },
-  'launchdarkly.com':         { name: 'LaunchDarkly',         category: 'A/B Testing',       risk: 'low'    },
+  'optimizely.com':           { name: 'Optimizely',              category: 'A/B Testing',           risk: 'medium',   desc: 'A/B testing and feature flagging platform' },
+  'vwo.com':                  { name: 'VWO',                     category: 'A/B Testing',           risk: 'medium',   desc: 'Visual Website Optimizer — A/B and multivariate testing' },
+  'launchdarkly.com':         { name: 'LaunchDarkly',            category: 'A/B Testing',           risk: 'low',      desc: 'Feature flag and progressive delivery platform' },
+  'abtasty.com':              { name: 'AB Tasty',                category: 'A/B Testing',           risk: 'medium',   desc: 'CRO platform with personalization and A/B testing' },
+  'convert.com':              { name: 'Convert Experiences',     category: 'A/B Testing',           risk: 'medium',   desc: 'A/B testing for enterprise' },
 
   // ── CRM / Chat ────────────────────────────────────────────
-  'intercom.io':              { name: 'Intercom',             category: 'Chat / CRM',        risk: 'low'    },
-  'js.intercomcdn.com':       { name: 'Intercom CDN',         category: 'Chat / CRM',        risk: 'low'    },
-  'drift.com':                { name: 'Drift',                category: 'Chat / CRM',        risk: 'low'    },
-  'driftt.com':               { name: 'Drift',                category: 'Chat / CRM',        risk: 'low'    },
-  'zd-cdn.com':               { name: 'Zendesk',              category: 'Chat / CRM',        risk: 'low'    },
+  'intercom.io':              { name: 'Intercom',                category: 'Chat / CRM',            risk: 'low',      desc: 'Customer messaging and support platform' },
+  'js.intercomcdn.com':       { name: 'Intercom CDN',            category: 'Chat / CRM',            risk: 'low'    },
+  'drift.com':                { name: 'Drift',                   category: 'Chat / CRM',            risk: 'low',      desc: 'Conversational marketing and sales platform' },
+  'driftt.com':               { name: 'Drift',                   category: 'Chat / CRM',            risk: 'low'    },
+  'zd-cdn.com':               { name: 'Zendesk',                 category: 'Chat / CRM',            risk: 'low',      desc: 'Customer support and ticketing platform' },
+  'widget.freshworks.com':    { name: 'Freshchat',               category: 'Chat / CRM',            risk: 'low',      desc: 'Freshworks customer messaging widget' },
+  'tawk.to':                  { name: 'Tawk.to',                 category: 'Chat / CRM',            risk: 'low',      desc: 'Free live chat support widget' },
+
+  // ── Adobe Suite ───────────────────────────────────────────
+  'omtrdc.net':               { name: 'Adobe Analytics',         category: 'Analytics',             risk: 'medium',   desc: 'Adobe Analytics data collection — formerly Omniture SiteCatalyst' },
+  '2o7.net':                  { name: 'Adobe SiteCatalyst',      category: 'Analytics',             risk: 'medium',   desc: 'Legacy Adobe Analytics beacon domain' },
+  'adobedtm.com':             { name: 'Adobe Launch (DTM)',       category: 'Tag Manager',           risk: 'medium',   desc: 'Adobe tag management system' },
+  'assets.adobedtm.com':      { name: 'Adobe DTM Assets',        category: 'Tag Manager',           risk: 'medium'   },
+  'demdex.net':               { name: 'Adobe Audience Manager',  category: 'Data Broker',           risk: 'high',     desc: 'Adobe DMP — cross-site audience segmentation and data selling' },
+
+  // ── Microsoft ─────────────────────────────────────────────
+  'bat.bing.com':             { name: 'Microsoft Ads (UET)',      category: 'Advertising',           risk: 'high',     desc: 'Microsoft Universal Event Tracking for Bing Ads campaigns' },
+  'c.bing.com':               { name: 'Bing Analytics',          category: 'Analytics',             risk: 'medium',   desc: 'Microsoft Bing web analytics' },
+
+  // ── Amazon ────────────────────────────────────────────────
+  'amazon-adsystem.com':      { name: 'Amazon Advertising',      category: 'Advertising',           risk: 'high',     desc: 'Amazon DSP and programmatic ad delivery across the web' },
+  'ad.doubleclick.net':       { name: 'DoubleClick Ad',          category: 'Advertising',           risk: 'high'   },
+
+  // ── Yandex / Russian ──────────────────────────────────────
+  'mc.yandex.ru':             { name: 'Yandex Metrica',          category: 'Analytics',             risk: 'high',     desc: 'Russian analytics with session recording — subject to Russian data laws' },
+  'mc.webvisor.org':          { name: 'Yandex Webvisor',         category: 'Session Recording',     risk: 'critical', desc: 'Yandex session replay tool — records mouse movement and keystrokes' },
+  'counter.ok.ru':            { name: 'Odnoklassniki Counter',   category: 'Analytics',             risk: 'high',     desc: 'VK / Odnoklassniki tracking counter' },
+
+  // ── HubSpot / Marketing Automation ───────────────────────
+  'js.hs-analytics.net':      { name: 'HubSpot Analytics',       category: 'Marketing Automation',  risk: 'medium',   desc: 'HubSpot marketing, CRM, and lead tracking' },
+  'js.hs-scripts.com':        { name: 'HubSpot Scripts',         category: 'Marketing Automation',  risk: 'medium'   },
+  'track.hubspot.com':        { name: 'HubSpot Tracking',        category: 'Marketing Automation',  risk: 'medium'   },
+  'pi.pardot.com':            { name: 'Salesforce Pardot',       category: 'Marketing Automation',  risk: 'medium',   desc: 'Salesforce B2B marketing automation and lead scoring' },
+  'munchkin.marketo.net':     { name: 'Marketo Munchkin',        category: 'Marketing Automation',  risk: 'medium',   desc: 'Adobe Marketo lead tracking — follows users across pages' },
+  'mktocdn.com':              { name: 'Marketo CDN',             category: 'Marketing Automation',  risk: 'medium'   },
+  'klaviyo.com':              { name: 'Klaviyo',                 category: 'Marketing Automation',  risk: 'medium',   desc: 'E-commerce email and SMS marketing platform with behavioral tracking' },
+  'a.klaviyo.com':            { name: 'Klaviyo Tracking',        category: 'Marketing Automation',  risk: 'medium'   },
+
+  // ── Data Brokers / DMPs ───────────────────────────────────
+  'bluekai.com':              { name: 'Oracle BlueKai',          category: 'Data Broker',           risk: 'critical', desc: 'Oracle DMP — collects, profiles, and sells user data at massive scale' },
+  'data.krux.com':            { name: 'Salesforce Krux',         category: 'Data Broker',           risk: 'critical', desc: 'Salesforce DMP for cross-site audience data collection and monetization' },
+  'liveramp.com':             { name: 'LiveRamp',                category: 'Data Broker',           risk: 'critical', desc: 'Identity resolution — links users across devices, browsers, and apps' },
+  'rlcdn.com':                { name: 'LiveRamp CDN',            category: 'Data Broker',           risk: 'critical'  },
+  'lotame.com':               { name: 'Lotame',                  category: 'Data Broker',           risk: 'high',     desc: 'Cross-device audience targeting and independent data exchange' },
+  'exelator.com':             { name: 'Nielsen eXelate',         category: 'Data Broker',           risk: 'high',     desc: 'Nielsen audience data platform for cross-publisher targeting' },
+  'mediamath.com':            { name: 'MediaMath',               category: 'Data Broker',           risk: 'high',     desc: 'Programmatic marketing platform with audience data sharing' },
+
+  // ── Identity & Fingerprinting Services ───────────────────
+  'api.fpjs.io':              { name: 'FingerprintJS Pro',       category: 'Fingerprinting',        risk: 'critical', desc: 'Commercial browser fingerprinting — uniquely identifies users without cookies, highly accurate' },
+  'fpnpmcdn.net':             { name: 'FingerprintJS CDN',       category: 'Fingerprinting',        risk: 'critical'  },
+  'cdn.fingerprint.com':      { name: 'Fingerprint.com',         category: 'Fingerprinting',        risk: 'critical', desc: 'Device identity / fraud detection using advanced browser fingerprinting' },
+  'iovation.com':             { name: 'iovation (TransUnion)',    category: 'Fingerprinting',        risk: 'high',     desc: 'Device-based fraud prevention via fingerprinting — used in banking and e-commerce' },
+  'threatmetrix.com':         { name: 'ThreatMetrix (LexisNexis)', category: 'Fingerprinting',      risk: 'high',     desc: 'Behavioral biometrics and device fingerprinting for fraud detection' },
+
+  // ── Session Recording (additional) ───────────────────────
+  'smartlook.com':            { name: 'Smartlook',               category: 'Session Recording',     risk: 'critical', desc: 'Screen recording and heatmaps — records all user interactions' },
+  'rec.smartlook.com':        { name: 'Smartlook Recording',     category: 'Session Recording',     risk: 'critical'  },
+  'contentsquare.net':        { name: 'ContentSquare',           category: 'Session Recording',     risk: 'critical', desc: 'Full session replay with digital experience analytics' },
+  'glassbox.com':             { name: 'Glassbox',                category: 'Session Recording',     risk: 'critical', desc: 'Automatic session capture — records every click, tap, and scroll' },
+  'ptengine.com':             { name: 'Ptengine',                category: 'Session Recording',     risk: 'critical', desc: 'Heatmap and session recording analytics' },
+  'sessioncam.com':           { name: 'SessionCam',              category: 'Session Recording',     risk: 'critical', desc: 'Session recording, heatmaps, and funnel analysis' },
+  'inspectlet.com':           { name: 'Inspectlet',              category: 'Session Recording',     risk: 'critical', desc: 'Session recording with eye-tracking heatmaps' },
+
+  // ── Tag Managers ──────────────────────────────────────────
+  'tealium.com':              { name: 'Tealium iQ',              category: 'Tag Manager',           risk: 'medium',   desc: 'Enterprise tag management and customer data platform' },
+  'tags.tiqcdn.com':          { name: 'Tealium CDN',             category: 'Tag Manager',           risk: 'medium'   },
+
+  // ── Ad Networks (additional) ─────────────────────────────
+  'adsrvr.org':               { name: 'The Trade Desk',          category: 'Advertising',           risk: 'high',     desc: 'Major DSP for programmatic advertising — extensive cross-site tracking' },
+  'indexexchange.com':        { name: 'Index Exchange',          category: 'Advertising',           risk: 'high',     desc: 'Header bidding and programmatic advertising exchange' },
+  'bidswitch.net':            { name: 'BidSwitch (IPONWEB)',     category: 'Advertising',           risk: 'high',     desc: 'Real-time bidding infrastructure for programmatic auctions' },
+  'media.net':                { name: 'Media.net (Yahoo)',       category: 'Advertising',           risk: 'high',     desc: 'Yahoo/Bing contextual advertising network' },
+  'sovrn.com':                { name: 'Sovrn',                   category: 'Advertising',           risk: 'high',     desc: 'Publisher ad platform and data commerce' },
+  'awin.com':                 { name: 'AWIN',                    category: 'Advertising',           risk: 'high',     desc: 'Global affiliate marketing network' },
+  'tradedoubler.com':         { name: 'Tradedoubler',            category: 'Advertising',           risk: 'high',     desc: 'Performance marketing and affiliate network' },
+  'smartadserver.com':        { name: 'Smart AdServer',          category: 'Advertising',           risk: 'high',     desc: 'Independent ad server for publishers and buyers' },
+  '33across.com':             { name: '33Across',                category: 'Advertising',           risk: 'high',     desc: 'Cookieless advertising and identity resolution' },
+  'casalemedia.com':          { name: 'Index Exchange (Casale)', category: 'Advertising',           risk: 'high'   },
+
+  // ── Social / Sharing Widgets ─────────────────────────────
+  'disqus.com':               { name: 'Disqus',                  category: 'Social',                risk: 'medium',   desc: 'Comment widget — tracks readers across all sites using it' },
+  'addthis.com':              { name: 'AddThis (Oracle)',        category: 'Social',                risk: 'high',     desc: 'Social sharing widget with extensive cross-site behavioral tracking sold to Oracle' },
+  'sharethis.com':            { name: 'ShareThis',               category: 'Social',                risk: 'high',     desc: 'Social sharing with user data monetization' },
+  'go.redirectingat.com':     { name: 'Skimlinks',               category: 'Advertising',           risk: 'medium',   desc: 'Automatically converts links to affiliate links — tracks purchases' },
+
+  // ── Extended Monitoring ───────────────────────────────────
+  'bugsnag.com':              { name: 'Bugsnag',                 category: 'Monitoring',            risk: 'low',      desc: 'Application error monitoring and stability management' },
+  'raygun.com':               { name: 'Raygun',                  category: 'Monitoring',            risk: 'low',      desc: 'Crash reporting and real user monitoring' },
+  'rollbar.com':              { name: 'Rollbar',                 category: 'Monitoring',            risk: 'low',      desc: 'Real-time error tracking and alerting' },
+  'cdn.lr-in.com':            { name: 'LogRocket CDN',           category: 'Session Recording',     risk: 'critical'  },
 };
 
 // ── In-memory tab data store ─────────────────────────────────

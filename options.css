@@ -420,3 +420,10 @@ input:checked + .toggle-slider::before { left: calc(100% - 19px); background: va
 .risk-high     { background: rgba(239,68,68,.15); color: #fca5a5; border: 1px solid rgba(239,68,68,.25); }
 .risk-medium   { background: rgba(245,158,11,.15);color: #fde68a; border: 1px solid rgba(245,158,11,.25); }
 .risk-low      { background: rgba(34,197,94,.12); color: #86efac; border: 1px solid rgba(34,197,94,.25); }
+
+.db-desc-text {
+  color: var(--txt3);
+  font-size: 10px;
+  font-style: italic;
+}
+.db-entry.has-desc .db-entry-domain { white-space: normal; }

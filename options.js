@@ -228,11 +228,11 @@ function renderTrackerDB() {
   empty.style.display = 'none';
 
   list.innerHTML = filtered.map(t => `
-    <div class="db-entry">
+    <div class="db-entry${t.desc ? ' has-desc' : ''}" data-desc="${esc(t.desc || '')}">
       <div class="db-risk-dot dot-${esc(t.risk)}"></div>
       <div class="db-entry-main">
         <div class="db-entry-name">${esc(t.name)}</div>
-        <div class="db-entry-domain">${esc(t.domain)}</div>
+        <div class="db-entry-domain">${esc(t.domain)}${t.desc ? `<span class="db-desc-text"> — ${esc(t.desc)}</span>` : ''}</div>
       </div>
       <span class="db-cat-badge">${esc(t.category)}</span>
       <span class="db-risk-badge risk-${esc(t.risk)}">${esc(t.risk)}</span>
