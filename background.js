@@ -115,9 +115,11 @@ async function disableGlobalProtection() {
 
 // ── Desktop notifications ───────────────────────────────────────
 // Tracks tabs that already received a notification this page load
-const notifiedTabs = new Set();
+const notifiedTabs    = new Set();
+const pendingTimers   = new Map(); // tabId → setTimeout handle
 
 const NOTIFY_THRESHOLD = 45; // score below this triggers alert
+const NOTIFY_DELAY_MS  = 3500; // wait for network requests to settle
 
 function maybeNotify(tabId) {
   if (notifiedTabs.has(tabId)) return;          // already notified this page
@@ -140,6 +142,17 @@ function maybeNotify(tabId) {
     message:  `${hostname} is running ${trackerCount} tracker${trackerCount !== 1 ? 's' : ''}. Your data is being collected.`,
     priority: 1,
   });
+}
+
+// Schedule a delayed notification (resets timer each call, fires once)
+function scheduleNotify(tabId) {
+  if (notifiedTabs.has(tabId)) return;
+  if (pendingTimers.has(tabId)) clearTimeout(pendingTimers.get(tabId));
+  const handle = setTimeout(() => {
+    pendingTimers.delete(tabId);
+    maybeNotify(tabId);
+  }, NOTIFY_DELAY_MS);
+  pendingTimers.set(tabId, handle);
 }
 
 const TRACKERS = {
@@ -430,7 +443,11 @@ chrome.webRequest.onBeforeRequest.addListener(
         const key = tracker.name + '|' + tracker.category;
         if (!data.trackers.has(key)) {
           data.trackers.set(key, { ...tracker, domain: reqDomain, requestCount: 0 });
-          updateBadge(tabId); // update badge when NEW tracker found
+          updateBadge(tabId);
+          // Schedule delayed notification when meaningful tracker found
+          if (tracker.risk === 'high' || tracker.risk === 'critical') {
+            scheduleNotify(tabId);
+          }
         }
         data.trackers.get(key).requestCount++;
       }
@@ -443,9 +460,13 @@ chrome.webRequest.onBeforeRequest.addListener(
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status === 'loading') {
     initTabData(tabId, tab.url || '');
-    // Clear badge and notification flag for fresh page load
     chrome.action.setBadgeText({ text: '', tabId });
     notifiedTabs.delete(tabId);
+    // Cancel any pending notification for this tab
+    if (pendingTimers.has(tabId)) {
+      clearTimeout(pendingTimers.get(tabId));
+      pendingTimers.delete(tabId);
+    }
   }
 });
 
@@ -492,7 +513,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
       }
       updateBadge(senderTabId); // refresh badge after DOM scan
-      maybeNotify(senderTabId); // send desktop alert if score is bad
+      scheduleNotify(senderTabId); // schedule notification after requests settle
       break;
     }
 
