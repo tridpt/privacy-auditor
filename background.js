@@ -161,6 +161,40 @@ function isSameFamily(domainA, domainB) {
   return false;
 }
 
+// ── Badge helper ──────────────────────────────────────────
+function updateBadge(tabId) {
+  if (!tabData.has(tabId)) {
+    chrome.action.setBadgeText({ text: '', tabId });
+    return;
+  }
+  const data   = tabData.get(tabId);
+  const count  = data.trackers.size;
+
+  if (count === 0) {
+    chrome.action.setBadgeText({ text: '', tabId });
+    return;
+  }
+
+  // Text: show count, cap at 99
+  chrome.action.setBadgeText({
+    text: count > 99 ? '99+' : String(count),
+    tabId,
+  });
+
+  // Colour: red > orange > yellow based on worst risk
+  const trackers   = [...data.trackers.values()];
+  const hasCrit    = trackers.some(t => t.risk === 'critical');
+  const hasHigh    = trackers.some(t => t.risk === 'high');
+  const color      = (hasCrit || count > 5) ? '#ef4444'
+                   : (hasHigh || count > 2)  ? '#f97316'
+                   :                           '#f59e0b';
+
+  chrome.action.setBadgeBackgroundColor({ color, tabId });
+
+  // Badge text colour (white always)
+  chrome.action.setBadgeTextColor?.({ color: '#ffffff', tabId });
+}
+
 // ── Known first-party data collectors ───────────────────────
 // These sites ARE the tracker — penalise even when on their domain.
 const FIRST_PARTY_PENALTY = [
@@ -256,6 +290,7 @@ chrome.webRequest.onBeforeRequest.addListener(
         const key = tracker.name + '|' + tracker.category;
         if (!data.trackers.has(key)) {
           data.trackers.set(key, { ...tracker, domain: reqDomain, requestCount: 0 });
+          updateBadge(tabId); // update badge when NEW tracker found
         }
         data.trackers.get(key).requestCount++;
       }
@@ -268,6 +303,8 @@ chrome.webRequest.onBeforeRequest.addListener(
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status === 'loading') {
     initTabData(tabId, tab.url || '');
+    // Clear badge for fresh page load
+    chrome.action.setBadgeText({ text: '', tabId });
   }
 });
 
@@ -313,6 +350,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           }
         }
       }
+      updateBadge(senderTabId); // refresh badge after DOM scan
       break;
     }
 
