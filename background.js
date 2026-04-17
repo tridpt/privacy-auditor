@@ -5,20 +5,28 @@
 // ── Per-site blocking store (rule IDs 2000+) ─────────────────
 // domain → declarativeNetRequest ruleId
 const blockedRules = new Map();
-let nextRuleId = 2000; // start high to avoid conflicts with global rules
+let nextRuleId = 2000;
 
-// Restore both per-site blocked rules AND global protection state
-chrome.storage.local.get(['blockedDomains', 'globalProtection'], async (result) => {
+// ── Whitelist store ──────────────────────────────────────────
+// hostname → whitelisted (no global block, no notification)
+let whitelist = new Set();
+
+// Restore everything on service worker startup
+chrome.storage.local.get(['blockedDomains', 'globalProtection', 'whitelist'], async (result) => {
   const saved = result.blockedDomains || {};
   for (const [domain, ruleId] of Object.entries(saved)) {
     blockedRules.set(domain, ruleId);
     if (ruleId >= nextRuleId) nextRuleId = ruleId + 1;
   }
+  whitelist = new Set(result.whitelist || []);
   if (result.globalProtection) {
-    // TRACKERS defined later in the file, so micro-delay ensures it's ready
     setTimeout(() => enableGlobalProtection(false), 0);
   }
 });
+
+async function persistWhitelist() {
+  await chrome.storage.local.set({ whitelist: [...whitelist] });
+}
 
 async function persistBlocked() {
   const obj = {};
@@ -100,18 +108,17 @@ function buildFamilyExclusions() {
 async function enableGlobalProtection(persist = true) {
   const domains    = Object.keys(TRACKERS);
   const exclusions = buildFamilyExclusions();
+  const wlArr      = [...whitelist]; // whitelisted hosts are never blocked
 
   const addRules = domains.map((domain, idx) => {
-    // Find which corporate family this tracker belongs to
     const familyDomains = exclusions.get(domain) ?? [];
-    // Only keep eTLD+1-style entries (no sub-sub-domains) for excludedInitiatorDomains
-    const excluded = [...new Set(
-      familyDomains.flatMap(f => {
-        // Chrome's excludedInitiatorDomains works on eTLD+1 / hostname level
+    const excluded = [...new Set([
+      ...familyDomains.flatMap(f => {
         const parts = f.split('.');
         return parts.length >= 2 ? [parts.slice(-2).join('.')] : [];
-      })
-    )];
+      }),
+      ...wlArr,  // ← whitelist exclusion
+    ])];
 
     const condition = {
       urlFilter: `||${domain}^`,
@@ -133,7 +140,6 @@ async function enableGlobalProtection(persist = true) {
   const removeRuleIds = domains.map((_, idx) => GLOBAL_RULE_ID_START + idx);
   try {
     await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds, addRules });
-    console.log('[PrivacyAuditor] Global ON —', addRules.length, 'rules');
     if (persist) await chrome.storage.local.set({ globalProtection: true });
   } catch (err) {
     console.error('[PrivacyAuditor] Global protection failed:', err);
@@ -160,21 +166,23 @@ function maybeNotify(tabId) {
   if (notifiedTabs.has(tabId)) return;
   if (!tabData.has(tabId))     return;
 
-  const d     = tabData.get(tabId);
+  const d        = tabData.get(tabId);
+  const hostname = getDomain(d.url || '');
+  if (hostname && whitelist.has(hostname)) return; // skip whitelisted sites
+
   const score = calculateScore(d);
   if (score >= NOTIFY_THRESHOLD) return;
 
   notifiedTabs.add(tabId);
 
   const trackerCount = d.trackers.size;
-  const hostname     = getDomain(d.url || '') || 'This page';
   const grade        = score < 20 ? 'Very Invasive' : 'Bad Privacy';
 
   chrome.notifications.create(`pa-${tabId}-${Date.now()}`, {
     type:     'basic',
     iconUrl:  'icons/icon48.png',
     title:    `⚠️ Privacy Alert — ${grade} (${score}/100)`,
-    message:  `${hostname} is running ${trackerCount} tracker${trackerCount !== 1 ? 's' : ''}. Your data is being collected.`,
+    message:  `${hostname ?? 'This page'} is running ${trackerCount} tracker${trackerCount !== 1 ? 's' : ''}. Your data is being collected.`,
     priority: 1,
   }, (id) => {
     if (chrome.runtime.lastError) {
@@ -716,6 +724,37 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           sendResponse({ ok: true, id });
         }
       });
+      return true;
+    }
+
+    case 'ADD_TO_WHITELIST': {
+      ;(async () => {
+        const { hostname } = message;
+        if (!hostname) { sendResponse({ ok: false }); return; }
+        whitelist.add(hostname);
+        await persistWhitelist();
+        // Rebuild global rules to exclude this host
+        const { globalProtection } = await chrome.storage.local.get('globalProtection');
+        if (globalProtection) await enableGlobalProtection(false);
+        sendResponse({ ok: true, whitelist: [...whitelist] });
+      })();
+      return true;
+    }
+
+    case 'REMOVE_FROM_WHITELIST': {
+      ;(async () => {
+        const { hostname } = message;
+        whitelist.delete(hostname);
+        await persistWhitelist();
+        const { globalProtection } = await chrome.storage.local.get('globalProtection');
+        if (globalProtection) await enableGlobalProtection(false);
+        sendResponse({ ok: true, whitelist: [...whitelist] });
+      })();
+      return true;
+    }
+
+    case 'GET_WHITELIST': {
+      sendResponse({ whitelist: [...whitelist] });
       return true;
     }
   }

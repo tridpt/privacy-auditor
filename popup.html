@@ -92,6 +92,12 @@
       <div id="scoreGrade" class="score-grade">—</div>
       <div id="siteHostname" class="site-host"></div>
       <div id="firstPartyBanner" class="fp-banner hidden"></div>
+      <button id="whitelistBtn" class="whitelist-toggle-btn hidden"></button>
+    </div>
+
+    <!-- Whitelist active banner -->
+    <div id="whitelistBanner" class="whitelist-banner hidden">
+      ✅ Whitelisted — blocking &amp; alerts paused for this site
     </div>
 
     <!-- Stats bar -->
@@ -210,6 +216,14 @@
       <div id="noHistory" class="empty-state hidden">
         <span>🕐</span>
         <p>No history yet — browse some sites!</p>
+      </div>
+
+      <!-- Whitelist manager -->
+      <div id="whitelistSection" class="whitelist-section hidden">
+        <div class="history-header" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+          <span class="history-title">🛡️ Whitelist</span>
+        </div>
+        <div id="whitelistItems" class="item-list"></div>
       </div>
     </div>
 

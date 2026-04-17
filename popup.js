@@ -230,7 +230,10 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     showPane(btn.dataset.tab + 'Tab');
-    if (btn.dataset.tab === 'history') renderHistory(); // load lazily
+    if (btn.dataset.tab === 'history') {
+      renderHistory();
+      renderWhitelistSection();
+    }
   });
 });
 
@@ -239,6 +242,61 @@ document.getElementById('clearHistoryBtn').addEventListener('click', async () =>
   await chrome.storage.local.remove('siteHistory');
   renderHistory();
 });
+
+// ── Whitelist button (current site) ──────────────────────────
+let currentHostname = null;
+
+function updateWhitelistUI(isWhitelisted) {
+  const btn    = document.getElementById('whitelistBtn');
+  const banner = document.getElementById('whitelistBanner');
+  btn.classList.remove('hidden');
+  if (isWhitelisted) {
+    btn.textContent = '🛡️ Whitelisted — click to remove';
+    btn.classList.add('is-whitelisted');
+    banner.classList.remove('hidden');
+  } else {
+    btn.textContent = '+ Whitelist this site';
+    btn.classList.remove('is-whitelisted');
+    banner.classList.add('hidden');
+  }
+}
+
+document.getElementById('whitelistBtn').addEventListener('click', async () => {
+  if (!currentHostname) return;
+  const btn = document.getElementById('whitelistBtn');
+  const isWL = btn.classList.contains('is-whitelisted');
+  btn.disabled = true;
+
+  const type = isWL ? 'REMOVE_FROM_WHITELIST' : 'ADD_TO_WHITELIST';
+  await chrome.runtime.sendMessage({ type, hostname: currentHostname });
+  updateWhitelistUI(!isWL);
+  btn.disabled = false;
+});
+
+// ── Whitelist section in History tab ─────────────────────────
+async function renderWhitelistSection() {
+  const resp = await chrome.runtime.sendMessage({ type: 'GET_WHITELIST' });
+  const wl   = resp?.whitelist ?? [];
+  const section = document.getElementById('whitelistSection');
+  const items   = document.getElementById('whitelistItems');
+
+  if (!wl.length) { section.classList.add('hidden'); return; }
+  section.classList.remove('hidden');
+
+  items.innerHTML = wl.map(h => `
+    <div class="whitelist-item">
+      <span class="whitelist-item-host">${esc(h)}</span>
+      <button class="whitelist-remove-btn" data-host="${esc(h)}">Remove</button>
+    </div>`).join('');
+
+  items.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.whitelist-remove-btn');
+    if (!btn) return;
+    await chrome.runtime.sendMessage({ type: 'REMOVE_FROM_WHITELIST', hostname: btn.dataset.host });
+    if (btn.dataset.host === currentHostname) updateWhitelistUI(false);
+    renderWhitelistSection();
+  }, { once: true });
+}
 
 // ── Load & render data ────────────────────────────────────────
 async function loadData() {
@@ -278,10 +336,20 @@ async function loadData() {
     }
 
     // Populate UI
+    let hostname = '';
     try {
-      const hostname = new URL(tab.url).hostname;
+      hostname = new URL(tab.url).hostname.replace(/^www\./, '');
       document.getElementById('siteHostname').textContent = hostname;
     } catch (_) {}
+
+    currentHostname = hostname || null;
+
+    // Check if current site is whitelisted
+    if (currentHostname) {
+      const wlResp = await chrome.runtime.sendMessage({ type: 'GET_WHITELIST' });
+      const wl = new Set(wlResp?.whitelist ?? []);
+      updateWhitelistUI(wl.has(currentHostname));
+    }
 
     const grade = getGrade(data.score);
     const gradeEl = document.getElementById('scoreGrade');
@@ -312,6 +380,7 @@ async function loadData() {
 
     states.main.classList.remove('hidden');
     animateGauge(data.score);
+
 
   } catch (err) {
     console.error('[PrivacyAuditor]', err);
