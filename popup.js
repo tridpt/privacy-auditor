@@ -375,7 +375,8 @@ Respond ONLY with valid JSON (no markdown, no code blocks):
 async function runAiAnalysis() {
   if (!currentData || !currentHostname) return;
 
-  const { geminiApiKey, aiLanguage = 'Vietnamese' } = await chrome.storage.local.get(['geminiApiKey', 'aiLanguage']);
+  const { geminiApiKey, aiLanguage = 'Vietnamese', geminiModel = 'gemini-2.0-flash-lite' } =
+    await chrome.storage.local.get(['geminiApiKey', 'aiLanguage', 'geminiModel']);
 
   const panel   = document.getElementById('aiPanel');
   const loading = document.getElementById('aiLoading');
@@ -403,7 +404,7 @@ async function runAiAnalysis() {
 
   try {
     const prompt = buildPrompt(currentData, currentHostname, aiLanguage);
-    const resp = await fetch(`${GEMINI_URL}?key=${geminiApiKey}`, {
+    const resp = await fetch(`${GEMINI_BASE}/${geminiModel}:generateContent?key=${geminiApiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

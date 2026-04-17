@@ -182,13 +182,20 @@ document.getElementById('aiLanguage').addEventListener('change', async (e) => {
   showSaved();
 });
 
+document.getElementById('geminiModel').addEventListener('change', async (e) => {
+  await chrome.storage.local.set({ geminiModel: e.target.value });
+  showSaved();
+});
+
 // ── Init ──────────────────────────────────────────────────────
 (async () => {
   await loadSettings();
   await loadWhitelist();
   await loadCustomRules();
   // Load AI settings
-  const { geminiApiKey, aiLanguage } = await chrome.storage.local.get(['geminiApiKey', 'aiLanguage']);
+  const { geminiApiKey, aiLanguage, geminiModel } =
+    await chrome.storage.local.get(['geminiApiKey', 'aiLanguage', 'geminiModel']);
   if (geminiApiKey) geminiKeyInput.value = geminiApiKey;
   if (aiLanguage)   document.getElementById('aiLanguage').value = aiLanguage;
+  if (geminiModel)  document.getElementById('geminiModel').value = geminiModel;
 })();
