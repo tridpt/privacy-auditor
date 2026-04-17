@@ -35,7 +35,7 @@
 
 1. Clone this repo:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/privacy-auditor.git
+   git clone https://github.com/tridpt/privacy-auditor.git
    ```
 
 2. Open Chrome and navigate to `chrome://extensions/`

@@ -4,6 +4,9 @@
 
 'use strict';
 
+// currently active tab id — needed for BLOCK_ALL
+let currentTabId = null;
+
 // ── Constants ────────────────────────────────────────────────
 const ARC_TOTAL = 267.5; // π × 85  (radius of gauge arc)
 
@@ -77,28 +80,39 @@ function colorCard(id, value, { dangerAt, warnAt, okAt } = {}) {
 }
 
 // ── Render: Trackers ─────────────────────────────────────────
-function renderTrackers(trackers) {
-  const list  = document.getElementById('trackerList');
-  const empty = document.getElementById('noTrackers');
+function renderTrackers(trackers, blockedSet = new Set()) {
+  const list    = document.getElementById('trackerList');
+  const empty   = document.getElementById('noTrackers');
+  const blockBar = document.getElementById('blockBar');
 
   if (!trackers?.length) {
     list.innerHTML = '';
     empty.classList.remove('hidden');
+    blockBar.classList.add('hidden');
     return;
   }
   empty.classList.add('hidden');
+  blockBar.classList.remove('hidden');
 
-  const order = { critical: 0, high: 1, medium: 2, low: 3 };
+  const order  = { critical: 0, high: 1, medium: 2, low: 3 };
   const sorted = [...trackers].sort((a, b) => (order[a.risk] ?? 4) - (order[b.risk] ?? 4));
 
-  list.innerHTML = sorted.map((t, i) => `
-    <div class="tracker-item risk-${esc(t.risk)}" style="animation-delay:${i * 30}ms">
+  list.innerHTML = sorted.map((t, i) => {
+    const isBlocked = blockedSet.has(t.domain);
+    return `
+    <div class="tracker-item risk-${esc(t.risk)} ${isBlocked ? 'is-blocked' : ''}" style="animation-delay:${i * 30}ms" data-domain="${esc(t.domain)}">
       <div class="tracker-info">
         <div class="tracker-name">${esc(t.name)}</div>
         <div class="tracker-meta">${esc(t.category)} &bull; ${esc(t.domain)}</div>
       </div>
-      <span class="badge badge-${esc(t.risk)}">${esc(t.risk)}</span>
-    </div>`).join('');
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+        <span class="badge badge-${esc(t.risk)}">${esc(t.risk)}</span>
+        <button class="block-btn ${isBlocked ? 'is-blocked' : ''}" data-domain="${esc(t.domain)}">
+          ${isBlocked ? '✓ Blocked' : 'Block'}
+        </button>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 // ── Render: Fingerprinting ───────────────────────────────────
@@ -228,8 +242,11 @@ async function loadData() {
       banner.classList.add('hidden');
     }
 
+    currentTabId = tab.id;
+
     updateStats(data);
-    renderTrackers(data.trackers);
+    const blockedSet = new Set(data.blocked ?? []);
+    renderTrackers(data.trackers, blockedSet);
     renderFingerprinting(data.fingerprinting);
     renderDetails(data);
 
@@ -260,6 +277,71 @@ document.getElementById('refreshBtn').addEventListener('click', () => {
 document.getElementById('reloadPageBtn').addEventListener('click', async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (tab?.id) chrome.tabs.reload(tab.id);
+});
+
+// ── Block All button ──────────────────────────────────────────
+document.getElementById('blockAllBtn').addEventListener('click', async () => {
+  if (!currentTabId) return;
+  const btn = document.getElementById('blockAllBtn');
+  btn.textContent = '⏳ Blocking...';
+  btn.disabled = true;
+  const resp = await chrome.runtime.sendMessage({ type: 'BLOCK_ALL', tabId: currentTabId });
+  const blockedSet = new Set(resp?.blocked ?? []);
+  // Re-render tracker list with updated blocked state
+  const list = document.getElementById('trackerList');
+  list.querySelectorAll('.block-btn').forEach(b => {
+    const domain = b.dataset.domain;
+    const row    = b.closest('.tracker-item');
+    if (blockedSet.has(domain)) {
+      b.textContent = '✓ Blocked';
+      b.classList.add('is-blocked');
+      row?.classList.add('is-blocked');
+    }
+  });
+  btn.disabled = false;
+  btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg> Block All';
+});
+
+// ── Unblock All button ────────────────────────────────────────
+document.getElementById('unblockAllBtn').addEventListener('click', async () => {
+  const btn = document.getElementById('unblockAllBtn');
+  btn.textContent = '⏳ Unblocking...';
+  btn.disabled = true;
+  await chrome.runtime.sendMessage({ type: 'UNBLOCK_ALL' });
+  // Reset all block buttons
+  document.getElementById('trackerList').querySelectorAll('.block-btn').forEach(b => {
+    b.textContent = 'Block';
+    b.classList.remove('is-blocked');
+    b.closest('.tracker-item')?.classList.remove('is-blocked');
+  });
+  btn.disabled = false;
+  btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Unblock All';
+});
+
+// ── Per-tracker block button (event delegation) ───────────────
+document.getElementById('trackerList').addEventListener('click', async (e) => {
+  const btn = e.target.closest('.block-btn');
+  if (!btn) return;
+
+  const domain    = btn.dataset.domain;
+  const row       = btn.closest('.tracker-item');
+  const isBlocked = btn.classList.contains('is-blocked');
+
+  btn.disabled = true;
+  btn.textContent = '⏳';
+
+  if (isBlocked) {
+    await chrome.runtime.sendMessage({ type: 'UNBLOCK_DOMAIN', domain });
+    btn.textContent = 'Block';
+    btn.classList.remove('is-blocked');
+    row?.classList.remove('is-blocked');
+  } else {
+    await chrome.runtime.sendMessage({ type: 'BLOCK_DOMAIN', domain });
+    btn.textContent = '✓ Blocked';
+    btn.classList.add('is-blocked');
+    row?.classList.add('is-blocked');
+  }
+  btn.disabled = false;
 });
 
 // ── Footer clock ─────────────────────────────────────────────

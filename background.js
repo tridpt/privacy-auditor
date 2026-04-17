@@ -2,6 +2,70 @@
 //  Privacy Auditor – Background Service Worker
 // ============================================================
 
+// ── Blocking store ──────────────────────────────────────────
+// domain → declarativeNetRequest ruleId
+const blockedRules = new Map();
+let nextRuleId = 2000; // start high to avoid conflicts
+
+// Restore blocked rules from storage on service worker startup
+chrome.storage.local.get(['blockedDomains'], (result) => {
+  const saved = result.blockedDomains || {};
+  for (const [domain, ruleId] of Object.entries(saved)) {
+    blockedRules.set(domain, ruleId);
+    if (ruleId >= nextRuleId) nextRuleId = ruleId + 1;
+  }
+});
+
+async function persistBlocked() {
+  const obj = {};
+  blockedRules.forEach((id, domain) => { obj[domain] = id; });
+  await chrome.storage.local.set({ blockedDomains: obj });
+}
+
+async function blockDomain(domain) {
+  if (!domain || blockedRules.has(domain)) return;
+  const ruleId = nextRuleId++;
+  await chrome.declarativeNetRequest.updateDynamicRules({
+    addRules: [{
+      id: ruleId,
+      priority: 1,
+      action: { type: 'block' },
+      condition: {
+        urlFilter: `||${domain}^`,
+        resourceTypes: [
+          'script', 'xmlhttprequest', 'ping',
+          'image', 'media', 'sub_frame', 'beacon'
+        ],
+      },
+    }],
+    removeRuleIds: [],
+  });
+  blockedRules.set(domain, ruleId);
+  await persistBlocked();
+}
+
+async function unblockDomain(domain) {
+  const ruleId = blockedRules.get(domain);
+  if (!ruleId) return;
+  await chrome.declarativeNetRequest.updateDynamicRules({
+    removeRuleIds: [ruleId],
+    addRules: [],
+  });
+  blockedRules.delete(domain);
+  await persistBlocked();
+}
+
+async function unblockAll() {
+  const ids = [...blockedRules.values()];
+  if (ids.length === 0) return;
+  await chrome.declarativeNetRequest.updateDynamicRules({
+    removeRuleIds: ids,
+    addRules: [],
+  });
+  blockedRules.clear();
+  await chrome.storage.local.set({ blockedDomains: {} });
+}
+
 const TRACKERS = {
   // ── Google ──────────────────────────────────────────────
   'google-analytics.com':     { name: 'Google Analytics',     category: 'Analytics',         risk: 'medium' },
@@ -391,10 +455,53 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           sessionStorage:   d.sessionStorage,
           timestamp:        d.timestamp,
           firstPartyNote:   fpInfo.note || null,
+          blocked:          [...blockedRules.keys()], // include currently blocked domains
         });
       })();
 
       return true; // keep message port open for async response
+    }
+
+    case 'BLOCK_DOMAIN': {
+      ;(async () => {
+        await blockDomain(message.domain);
+        sendResponse({ ok: true, blocked: [...blockedRules.keys()] });
+      })();
+      return true;
+    }
+
+    case 'UNBLOCK_DOMAIN': {
+      ;(async () => {
+        await unblockDomain(message.domain);
+        sendResponse({ ok: true, blocked: [...blockedRules.keys()] });
+      })();
+      return true;
+    }
+
+    case 'BLOCK_ALL': {
+      ;(async () => {
+        const tabId = message.tabId;
+        if (tabData.has(tabId)) {
+          for (const t of tabData.get(tabId).trackers.values()) {
+            await blockDomain(t.domain);
+          }
+        }
+        sendResponse({ ok: true, blocked: [...blockedRules.keys()] });
+      })();
+      return true;
+    }
+
+    case 'UNBLOCK_ALL': {
+      ;(async () => {
+        await unblockAll();
+        sendResponse({ ok: true, blocked: [] });
+      })();
+      return true;
+    }
+
+    case 'GET_BLOCKED': {
+      sendResponse({ blocked: [...blockedRules.keys()] });
+      return true;
     }
   }
 
