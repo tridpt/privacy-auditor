@@ -460,3 +460,69 @@ body {
   left: calc(100% - 16px);
   background: #22c55e;
 }
+
+/* ── Site History ─────────────────────────────────────────── */
+.history-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 4px 0 8px;
+  flex-shrink: 0;
+}
+.history-title {
+  font-size: 11px; font-weight: 600;
+  color: var(--txt3);
+  text-transform: uppercase; letter-spacing: .4px;
+}
+.clear-history-btn {
+  font-size: 10px; font-weight: 600;
+  color: var(--txt3);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 2px 8px;
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: 'Inter', sans-serif;
+}
+.clear-history-btn:hover {
+  color: #fca5a5;
+  border-color: rgba(239,68,68,.4);
+  background: rgba(239,68,68,.08);
+}
+
+/* History item */
+.history-item {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+  padding: 9px 12px;
+  animation: fadeUp .2s ease both;
+  transition: background var(--transition);
+}
+.history-item:hover { background: var(--card-hover); }
+
+.history-score-dot {
+  flex-shrink: 0;
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800;
+  border: 2px solid currentColor;
+}
+
+.history-info { flex: 1; min-width: 0; }
+.history-host {
+  font-size: 12px; font-weight: 600; color: var(--txt);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.history-meta {
+  font-size: 10px; color: var(--txt3);
+  margin-top: 2px;
+}
+
+/* Score color helpers for history */
+.score-good   { color: #22c55e; background: rgba(34,197,94,.1); }
+.score-fair   { color: #eab308; background: rgba(234,179,8,.1); }
+.score-poor   { color: #f97316; background: rgba(249,115,22,.1); }
+.score-bad    { color: #ef4444; background: rgba(239,68,68,.1); }
+.score-critical { color: #dc2626; background: rgba(220,38,38,.12); }

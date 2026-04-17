@@ -119,6 +119,7 @@
       <button class="tab-btn active" data-tab="trackers"    role="tab">Trackers</button>
       <button class="tab-btn"        data-tab="fingerprint" role="tab">Fingerprint</button>
       <button class="tab-btn"        data-tab="details"     role="tab">Details</button>
+      <button class="tab-btn"        data-tab="history"     role="tab">History</button>
     </div>
 
     <!-- Tab: Trackers -->
@@ -196,6 +197,19 @@
             <div class="detail-val" id="dRecorders">—</div>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Tab: History -->
+    <div id="historyTab" class="tab-pane hidden" role="tabpanel">
+      <div class="history-header">
+        <span class="history-title">Recently Visited</span>
+        <button id="clearHistoryBtn" class="clear-history-btn" title="Clear history">Clear</button>
+      </div>
+      <div id="historyList" class="item-list"></div>
+      <div id="noHistory" class="empty-state hidden">
+        <span>🕐</span>
+        <p>No history yet — browse some sites!</p>
       </div>
     </div>
 

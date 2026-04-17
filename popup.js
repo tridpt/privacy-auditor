@@ -152,6 +152,54 @@ function renderDetails(data) {
   document.getElementById('dRecorders').textContent  = recorders ? `${recorders} found ⚠️` : 'None ✅';
 }
 
+// ── Render: History ───────────────────────────────────────────
+function scoreClass(score) {
+  if (score >= 80) return 'score-good';
+  if (score >= 60) return 'score-fair';
+  if (score >= 40) return 'score-poor';
+  if (score >= 20) return 'score-bad';
+  return 'score-critical';
+}
+
+function timeAgo(ts) {
+  const diff = Date.now() - ts;
+  const m = Math.floor(diff / 60000);
+  const h = Math.floor(diff / 3600000);
+  const d = Math.floor(diff / 86400000);
+  if (m < 1)  return 'just now';
+  if (m < 60) return `${m}m ago`;
+  if (h < 24) return `${h}h ago`;
+  return `${d}d ago`;
+}
+
+async function renderHistory() {
+  const list  = document.getElementById('historyList');
+  const empty = document.getElementById('noHistory');
+  const { siteHistory = [] } = await chrome.storage.local.get('siteHistory');
+
+  if (!siteHistory.length) {
+    list.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+
+  list.innerHTML = siteHistory.map((e, i) => {
+    const cls   = scoreClass(e.score);
+    const metas = [`${e.trackerCount} tracker${e.trackerCount !== 1 ? 's' : ''}`,
+                   e.fpCount ? `${e.fpCount} fingerprint` : null,
+                   timeAgo(e.timestamp)].filter(Boolean).join(' · ');
+    return `
+    <div class="history-item" style="animation-delay:${i * 20}ms">
+      <div class="history-score-dot ${cls}">${e.score}</div>
+      <div class="history-info">
+        <div class="history-host">${esc(e.hostname)}</div>
+        <div class="history-meta">${esc(metas)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
 // ── Update stats bar ─────────────────────────────────────────
 function updateStats(data) {
   const trackerCount = data.trackers?.length ?? 0;
@@ -182,7 +230,14 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     showPane(btn.dataset.tab + 'Tab');
+    if (btn.dataset.tab === 'history') renderHistory(); // load lazily
   });
+});
+
+// ── Clear History button ──────────────────────────────────────
+document.getElementById('clearHistoryBtn').addEventListener('click', async () => {
+  await chrome.storage.local.remove('siteHistory');
+  renderHistory();
 });
 
 // ── Load & render data ────────────────────────────────────────

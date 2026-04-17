@@ -510,14 +510,37 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 
   // Page fully loaded — best time to check score (all requests captured)
   if (changeInfo.status === 'complete') {
-    console.log('[PA] tab complete, checking score for tab', tabId);
-    setTimeout(() => maybeNotify(tabId), 500); // short delay for last requests
+    setTimeout(() => maybeNotify(tabId), 500);
+    setTimeout(() => saveToHistory(tabId), 2000); // give extra time for cookies
   }
 });
 
 chrome.tabs.onRemoved.addListener((tabId) => {
   tabData.delete(tabId);
 });
+
+// ── Site History ──────────────────────────────────────────────
+// Saves the last 100 unique hostnames visited with their privacy score.
+async function saveToHistory(tabId) {
+  if (!tabData.has(tabId)) return;
+  const d = tabData.get(tabId);
+  if (!d.url || !/^https?:/.test(d.url)) return;  // skip chrome:// etc.
+
+  const hostname = getDomain(d.url);
+  if (!hostname) return;
+
+  const score        = calculateScore(d);
+  const trackerCount = d.trackers.size;
+  const fpCount      = d.fingerprinting.size;
+
+  const entry = { hostname, score, trackerCount, fpCount, timestamp: Date.now() };
+
+  const { siteHistory = [] } = await chrome.storage.local.get('siteHistory');
+  // Keep only the latest entry per hostname
+  const filtered = siteHistory.filter(e => e.hostname !== hostname);
+  const updated  = [entry, ...filtered].slice(0, 100);
+  await chrome.storage.local.set({ siteHistory: updated });
+}
 
 // ── Message handler ───────────────────────────────────────────
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
