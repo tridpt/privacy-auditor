@@ -55,10 +55,14 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 18px;
+  padding: 12px 16px;
   background: linear-gradient(135deg, #1a1040 0%, #0f172a 100%);
   border-bottom: 1px solid var(--border);
   position: sticky; top: 0; z-index: 10;
+}
+
+.header-actions {
+  display: flex; align-items: center; gap: 10px;
 }
 
 .logo { display: flex; align-items: center; gap: 9px; }
@@ -403,3 +407,56 @@ body {
   text-decoration-color: rgba(34,197,94,.6);
 }
 
+/* ── Global toggle ──────────────────────────────────────── */
+.global-toggle-wrap {
+  display: flex; align-items: center; gap: 6px;
+  cursor: pointer;
+}
+
+.global-toggle-label {
+  font-size: 10px; font-weight: 600;
+  color: var(--txt3);
+  letter-spacing: .3px;
+  text-transform: uppercase;
+  transition: color var(--transition);
+  white-space: nowrap;
+}
+.global-toggle-wrap:has(input:checked) .global-toggle-label {
+  color: #86efac;
+}
+
+/* iOS-style toggle switch */
+.toggle-switch {
+  position: relative;
+  width: 36px; height: 20px;
+  cursor: pointer;
+}
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+
+.toggle-slider {
+  position: absolute; inset: 0;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: 999px;
+  transition: all .22s ease;
+}
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  left: 2px; top: 50%; transform: translateY(-50%);
+  width: 14px; height: 14px;
+  background: var(--txt3);
+  border-radius: 50%;
+  transition: all .22s ease;
+}
+
+/* Checked state – green */
+.toggle-switch input:checked + .toggle-slider {
+  background: rgba(34,197,94,.25);
+  border-color: rgba(34,197,94,.5);
+  box-shadow: 0 0 8px rgba(34,197,94,.3);
+}
+.toggle-switch input:checked + .toggle-slider::before {
+  left: calc(100% - 16px);
+  background: #22c55e;
+}

@@ -22,12 +22,21 @@
       </div>
       <span class="logo-text">Privacy Auditor</span>
     </div>
-    <button id="refreshBtn" class="icon-btn" title="Re-scan page">
-      <svg id="refreshIcon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
-        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
-      </svg>
-    </button>
+    <div class="header-actions">
+      <div class="global-toggle-wrap" id="globalToggleWrap" title="Auto-block all trackers on every website">
+        <span class="global-toggle-label" id="globalToggleLabel">Auto-Block</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="globalToggle">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <button id="refreshBtn" class="icon-btn" title="Re-scan page">
+        <svg id="refreshIcon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+        </svg>
+      </button>
+    </div>
   </header>
 
   <!-- ── Loading ──────────────────────────────────────────── -->

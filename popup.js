@@ -347,5 +347,28 @@ document.getElementById('trackerList').addEventListener('click', async (e) => {
 // ── Footer clock ─────────────────────────────────────────────
 document.getElementById('footerTime').textContent = new Date().toLocaleTimeString();
 
+// ── Global auto-block toggle ──────────────────────────────────
+const globalToggle = document.getElementById('globalToggle');
+
+// Load current state from background on popup open
+chrome.runtime.sendMessage({ type: 'GET_GLOBAL_PROTECTION' }, (resp) => {
+  if (resp?.globalProtection) globalToggle.checked = true;
+});
+
+globalToggle.addEventListener('change', async () => {
+  const enabled = globalToggle.checked;
+  globalToggle.disabled = true;
+
+  const type = enabled ? 'ENABLE_GLOBAL_PROTECTION' : 'DISABLE_GLOBAL_PROTECTION';
+  const resp = await chrome.runtime.sendMessage({ type });
+
+  if (!resp?.ok) {
+    // Revert toggle if it failed
+    globalToggle.checked = !enabled;
+    console.error('[PrivacyAuditor] Toggle failed:', resp);
+  }
+  globalToggle.disabled = false;
+});
+
 // ── Boot ──────────────────────────────────────────────────────
 loadData();

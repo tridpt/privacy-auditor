@@ -2,17 +2,21 @@
 //  Privacy Auditor – Background Service Worker
 // ============================================================
 
-// ── Blocking store ──────────────────────────────────────────
+// ── Per-site blocking store (rule IDs 2000+) ─────────────────
 // domain → declarativeNetRequest ruleId
 const blockedRules = new Map();
-let nextRuleId = 2000; // start high to avoid conflicts
+let nextRuleId = 2000; // start high to avoid conflicts with global rules
 
-// Restore blocked rules from storage on service worker startup
-chrome.storage.local.get(['blockedDomains'], (result) => {
+// Restore both per-site blocked rules AND global protection state
+chrome.storage.local.get(['blockedDomains', 'globalProtection'], async (result) => {
   const saved = result.blockedDomains || {};
   for (const [domain, ruleId] of Object.entries(saved)) {
     blockedRules.set(domain, ruleId);
     if (ruleId >= nextRuleId) nextRuleId = ruleId + 1;
+  }
+  if (result.globalProtection) {
+    // TRACKERS defined later in the file, so micro-delay ensures it's ready
+    setTimeout(() => enableGlobalProtection(false), 0);
   }
 });
 
@@ -71,6 +75,42 @@ async function unblockAll() {
   });
   blockedRules.clear();
   await chrome.storage.local.set({ blockedDomains: {} });
+}
+
+// ── Global auto-block (rule IDs 1–999) ───────────────────────
+// Blocks ALL known tracker domains on EVERY website.
+const GLOBAL_RULE_ID_START = 1;
+
+async function enableGlobalProtection(persist = true) {
+  const domains  = Object.keys(TRACKERS);
+  const addRules = domains.map((domain, idx) => ({
+    id:       GLOBAL_RULE_ID_START + idx,
+    priority: 2,
+    action:   { type: 'block' },
+    condition: {
+      urlFilter: `||${domain}^`,
+      resourceTypes: [
+        'script', 'xmlhttprequest', 'ping',
+        'image', 'media', 'sub_frame', 'other'
+      ],
+    },
+  }));
+  const removeRuleIds = domains.map((_, idx) => GLOBAL_RULE_ID_START + idx);
+  try {
+    await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds, addRules });
+    console.log('[PrivacyAuditor] Global ON —', addRules.length, 'rules');
+    if (persist) await chrome.storage.local.set({ globalProtection: true });
+  } catch (err) {
+    console.error('[PrivacyAuditor] Global protection failed:', err);
+    throw err;
+  }
+}
+
+async function disableGlobalProtection() {
+  const removeRuleIds = Object.keys(TRACKERS).map((_, idx) => GLOBAL_RULE_ID_START + idx);
+  await chrome.declarativeNetRequest.updateDynamicRules({ removeRuleIds, addRules: [] });
+  await chrome.storage.local.set({ globalProtection: false });
+  console.log('[PrivacyAuditor] Global OFF');
 }
 
 const TRACKERS = {
@@ -508,6 +548,37 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     case 'GET_BLOCKED': {
       sendResponse({ blocked: [...blockedRules.keys()] });
+      return true;
+    }
+
+    case 'ENABLE_GLOBAL_PROTECTION': {
+      ;(async () => {
+        try {
+          await enableGlobalProtection();
+          sendResponse({ ok: true, globalProtection: true });
+        } catch (err) {
+          sendResponse({ ok: false, error: err.message });
+        }
+      })();
+      return true;
+    }
+
+    case 'DISABLE_GLOBAL_PROTECTION': {
+      ;(async () => {
+        try {
+          await disableGlobalProtection();
+          sendResponse({ ok: true, globalProtection: false });
+        } catch (err) {
+          sendResponse({ ok: false, error: err.message });
+        }
+      })();
+      return true;
+    }
+
+    case 'GET_GLOBAL_PROTECTION': {
+      chrome.storage.local.get(['globalProtection'], (r) => {
+        sendResponse({ globalProtection: !!r.globalProtection });
+      });
       return true;
     }
   }
