@@ -187,14 +187,261 @@ document.getElementById('geminiModel').addEventListener('change', async (e) => {
   showSaved();
 });
 
+// ── Weekly Stats Dashboard ────────────────────────────────────
+async function loadWeeklyStats() {
+  const { siteHistory = [] } = await chrome.storage.local.get('siteHistory');
+  const now     = Date.now();
+  const weekAgo = now - 7 * 86400000;
+  const week    = siteHistory.filter(e => e.timestamp >= weekAgo);
+
+  // ── Summary cards ────────────────────────────────────────
+  document.getElementById('wsSitesVisited').textContent  = week.length;
+  document.getElementById('wsTotalTrackers').textContent =
+    week.reduce((s, e) => s + (e.trackerCount ?? 0), 0);
+
+  if (week.length) {
+    const avg = Math.round(week.reduce((s, e) => s + e.score, 0) / week.length);
+    const avgEl = document.getElementById('wsAvgScore');
+    avgEl.textContent = avg;
+    avgEl.style.color = avg >= 70 ? '#86efac' : avg >= 45 ? '#fde68a' : '#fca5a5';
+
+    const worst = [...week].sort((a, b) => a.score - b.score)[0];
+    document.getElementById('wsWorstSite').textContent =
+      `${worst.hostname}\n(${worst.score}/100)`;
+  }
+
+  // ── Last-7-days buckets (one per calendar day) ────────────
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now - i * 86400000);
+    days.push({
+      label: d.toLocaleDateString('en-US', { weekday: 'short' }),
+      date:  d.toDateString(),
+      scores: [],
+      trackers: 0,
+    });
+  }
+  week.forEach(e => {
+    const dateStr = new Date(e.timestamp).toDateString();
+    const bucket  = days.find(d => d.date === dateStr);
+    if (bucket) {
+      bucket.scores.push(e.score);
+      bucket.trackers += e.trackerCount ?? 0;
+    }
+  });
+  const avgScores   = days.map(d => d.scores.length ? Math.round(d.scores.reduce((a,b)=>a+b,0)/d.scores.length) : null);
+  const trackerCounts = days.map(d => d.trackers);
+  const labels      = days.map(d => d.label);
+
+  drawScoreChart(labels, avgScores);
+  drawTrackerChart(labels, trackerCounts);
+  renderTopSites(week);
+}
+
+// ── Canvas helpers ────────────────────────────────────────────
+function scoreToColor(s) {
+  if (s === null) return '#64748b';
+  if (s >= 80)   return '#22c55e';
+  if (s >= 60)   return '#eab308';
+  if (s >= 40)   return '#f97316';
+  return '#ef4444';
+}
+
+function drawScoreChart(labels, data) {
+  const canvas = document.getElementById('scoreChart');
+  const empty  = document.getElementById('scoreChartEmpty');
+  const hasData = data.some(v => v !== null);
+
+  if (!hasData) { canvas.style.display='none'; empty.classList.remove('hidden'); return; }
+  canvas.style.display=''; empty.classList.add('hidden');
+
+  const W = canvas.offsetWidth || 600;
+  const H = 160;
+  canvas.width  = W * devicePixelRatio;
+  canvas.height = H * devicePixelRatio;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+
+  const pad = { t:16, r:16, b:32, l:36 };
+  const cw  = W - pad.l - pad.r;
+  const ch  = H - pad.t - pad.b;
+  const n   = labels.length;
+  const xStep = cw / (n - 1);
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(255,255,255,.06)';
+  ctx.lineWidth   = 1;
+  [0, 25, 50, 75, 100].forEach(val => {
+    const y = pad.t + ch - (val / 100) * ch;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + cw, y); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,.25)';
+    ctx.font      = `${10 * devicePixelRatio / devicePixelRatio}px Inter, sans-serif`;
+    ctx.textAlign = 'right';
+    ctx.fillText(val, pad.l - 6, y + 4);
+  });
+
+  // Build points (skip null)
+  const pts = data.map((v, i) => v === null ? null : {
+    x: pad.l + i * xStep,
+    y: pad.t + ch - (v / 100) * ch,
+    v,
+  });
+
+  // Gradient fill under line
+  const filled = pts.filter(Boolean);
+  if (filled.length >= 2) {
+    ctx.beginPath();
+    ctx.moveTo(filled[0].x, filled[0].y);
+    filled.slice(1).forEach(p => ctx.lineTo(p.x, p.y));
+    ctx.lineTo(filled.at(-1).x, pad.t + ch);
+    ctx.lineTo(filled[0].x, pad.t + ch);
+    ctx.closePath();
+    const grad = ctx.createLinearGradient(0, pad.t, 0, pad.t + ch);
+    grad.addColorStop(0,   'rgba(99,102,241,.35)');
+    grad.addColorStop(1,   'rgba(99,102,241,.02)');
+    ctx.fillStyle = grad;
+    ctx.fill();
+  }
+
+  // Line segments (coloured by score)
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1];
+    if (!a || !b) continue;
+    const grad = ctx.createLinearGradient(a.x, 0, b.x, 0);
+    grad.addColorStop(0, scoreToColor(a.v));
+    grad.addColorStop(1, scoreToColor(b.v));
+    ctx.strokeStyle = grad;
+    ctx.lineWidth   = 2.5;
+    ctx.lineCap     = 'round';
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+  }
+
+  // Data points
+  pts.forEach(p => {
+    if (!p) return;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+    ctx.fillStyle   = scoreToColor(p.v);
+    ctx.strokeStyle = '#0d1424';
+    ctx.lineWidth   = 2;
+    ctx.fill(); ctx.stroke();
+  });
+
+  // X-axis labels
+  labels.forEach((lbl, i) => {
+    ctx.fillStyle = 'rgba(255,255,255,.4)';
+    ctx.font      = '10px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(lbl, pad.l + i * xStep, H - 6);
+  });
+}
+
+function drawTrackerChart(labels, counts) {
+  const canvas = document.getElementById('trackerChart');
+  const empty  = document.getElementById('trackerChartEmpty');
+  const hasData = counts.some(v => v > 0);
+
+  if (!hasData) { canvas.style.display='none'; empty.classList.remove('hidden'); return; }
+  canvas.style.display=''; empty.classList.add('hidden');
+
+  const W = canvas.offsetWidth || 600;
+  const H = 160;
+  canvas.width  = W * devicePixelRatio;
+  canvas.height = H * devicePixelRatio;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+
+  const pad  = { t:16, r:16, b:32, l:36 };
+  const cw   = W - pad.l - pad.r;
+  const ch   = H - pad.t - pad.b;
+  const n    = labels.length;
+  const max  = Math.max(...counts, 1);
+  const bw   = (cw / n) * 0.55;
+  const gap  = (cw / n) * 0.45;
+
+  // Grid
+  ctx.strokeStyle = 'rgba(255,255,255,.06)';
+  ctx.lineWidth   = 1;
+  [0, .25, .5, .75, 1].forEach(f => {
+    const y = pad.t + ch - f * ch;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + cw, y); ctx.stroke();
+    const val = Math.round(f * max);
+    ctx.fillStyle = 'rgba(255,255,255,.25)';
+    ctx.font      = '10px Inter, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(val, pad.l - 6, y + 4);
+  });
+
+  // Bars
+  counts.forEach((v, i) => {
+    const x   = pad.l + i * (cw / n) + gap / 2;
+    const h   = (v / max) * ch;
+    const y   = pad.t + ch - h;
+    const grad = ctx.createLinearGradient(0, y, 0, y + h);
+    grad.addColorStop(0, 'rgba(239,68,68,.8)');
+    grad.addColorStop(1, 'rgba(239,68,68,.25)');
+    ctx.fillStyle   = grad;
+    ctx.strokeStyle = 'rgba(239,68,68,.5)';
+    ctx.lineWidth   = 1;
+    const r = Math.min(4, bw / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + bw, y, x + bw, y + h, r);
+    ctx.arcTo(x + bw, y + h, x, y + h, 0);
+    ctx.arcTo(x, y + h, x, y, 0);
+    ctx.arcTo(x, y, x + bw, y, r);
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+
+    // Value labels on bars
+    if (v > 0) {
+      ctx.fillStyle = 'rgba(255,255,255,.7)';
+      ctx.font      = '9px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(v, x + bw / 2, y - 4);
+    }
+
+    // X labels
+    ctx.fillStyle = 'rgba(255,255,255,.4)';
+    ctx.font      = '10px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(labels[i], x + bw / 2, H - 6);
+  });
+}
+
+function renderTopSites(week) {
+  const topEl   = document.getElementById('wsTopSites');
+  const emptyEl = document.getElementById('wsTopSitesEmpty');
+
+  if (!week.length) { topEl.innerHTML=''; emptyEl.classList.remove('hidden'); return; }
+  emptyEl.classList.add('hidden');
+
+  // Unique sites — keep worst score per hostname
+  const map = new Map();
+  week.forEach(e => {
+    if (!map.has(e.hostname) || e.score < map.get(e.hostname).score) map.set(e.hostname, e);
+  });
+  const top = [...map.values()].sort((a,b) => a.score - b.score).slice(0, 7);
+
+  topEl.innerHTML = top.map((e, i) => {
+    const color = scoreToColor(e.score);
+    const barW  = (1 - e.score / 100) * 100; // wider bar = worse
+    return `<div class="ws-site-row">
+      <span class="ws-site-rank">#${i + 1}</span>
+      <span class="ws-site-name">${e.hostname}</span>
+      <div class="ws-site-bar-wrap">
+        <div class="ws-site-bar" style="width:${barW}%;background:${color}"></div>
+      </div>
+      <span class="ws-site-score" style="color:${color}">${e.score}</span>
+      <span class="ws-site-trackers">${e.trackerCount ?? 0} tracker${(e.trackerCount??0)!==1?'s':''}</span>
+    </div>`;
+  }).join('');
+}
+
 // ── Tracker DB Browser ───────────────────────────────────────
 let allTrackers = [];
 let dbRiskFilter = 'all';
 let dbCatFilter  = '';
-
-function esc(s) {
-  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
 
 function renderTrackerDB() {
   const q      = (document.getElementById('dbSearch')?.value ?? '').toLowerCase();
@@ -283,6 +530,7 @@ document.querySelectorAll('.db-filter-btn').forEach(btn => {
   await loadWhitelist();
   await loadCustomRules();
   await loadTrackerDB();
+  await loadWeeklyStats();
   // Load AI settings
   const { geminiApiKey, aiLanguage, geminiModel } =
     await chrome.storage.local.get(['geminiApiKey', 'aiLanguage', 'geminiModel']);

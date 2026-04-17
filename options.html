@@ -22,6 +22,9 @@
       </div>
     </div>
     <nav class="nav">
+      <a class="nav-item" data-sec="weekly-stats" href="#weekly-stats">
+        <span>📊</span> Weekly Stats
+      </a>
       <a class="nav-item active" data-sec="notifications" href="#notifications">
         <span>🔔</span> Notifications
       </a>
@@ -51,6 +54,57 @@
 
   <!-- Main content -->
   <main class="main">
+
+    <!-- ── Weekly Stats Dashboard ───────────────── -->
+    <section id="weekly-stats" class="section">
+      <h1 class="section-title">📊 Weekly Privacy Stats</h1>
+      <p class="section-desc">Overview of your privacy exposure over the past 7 days based on visited sites.</p>
+
+      <!-- Summary cards -->
+      <div class="ws-cards">
+        <div class="ws-card">
+          <div class="ws-card-val" id="wsAvgScore">—</div>
+          <div class="ws-card-lbl">Avg Score</div>
+        </div>
+        <div class="ws-card">
+          <div class="ws-card-val" id="wsSitesVisited">—</div>
+          <div class="ws-card-lbl">Sites Visited</div>
+        </div>
+        <div class="ws-card">
+          <div class="ws-card-val" id="wsTotalTrackers">—</div>
+          <div class="ws-card-lbl">Trackers Seen</div>
+        </div>
+        <div class="ws-card danger">
+          <div class="ws-card-val" id="wsWorstSite">—</div>
+          <div class="ws-card-lbl">Riskiest Site</div>
+        </div>
+      </div>
+
+      <!-- Score trend chart -->
+      <div class="ws-chart-block">
+        <div class="ws-chart-title">📈 Privacy Score — Last 7 Days</div>
+        <div class="ws-chart-wrap">
+          <canvas id="scoreChart" class="ws-canvas"></canvas>
+          <div id="scoreChartEmpty" class="ws-empty hidden">No history data yet. Browse some sites first.</div>
+        </div>
+      </div>
+
+      <!-- Tracker count bar chart -->
+      <div class="ws-chart-block">
+        <div class="ws-chart-title">🛡️ Trackers Encountered — Last 7 Days</div>
+        <div class="ws-chart-wrap">
+          <canvas id="trackerChart" class="ws-canvas"></canvas>
+          <div id="trackerChartEmpty" class="ws-empty hidden">No history data yet.</div>
+        </div>
+      </div>
+
+      <!-- Top risky sites -->
+      <div class="ws-chart-block">
+        <div class="ws-chart-title">⚠️ Top Riskiest Sites This Week</div>
+        <div id="wsTopSites" class="ws-top-sites"></div>
+        <div id="wsTopSitesEmpty" class="ws-empty hidden">No data yet.</div>
+      </div>
+    </section>
 
     <!-- ── Notifications ──────────────────────────── -->
     <section id="notifications" class="section">
