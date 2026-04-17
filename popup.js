@@ -930,5 +930,26 @@ rescanNowBtn.addEventListener('click', async () => {
   }, autoRescanTotal * 1000);
 });
 
+// ── Theme Toggle ──────────────────────────────────────────────
+const themeBtn = document.getElementById('themeToggleBtn');
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  themeBtn.textContent = theme === 'light' ? '☀️' : '🌙';
+  themeBtn.title = theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode';
+}
+
+// Load saved theme on startup
+chrome.storage.local.get('theme', ({ theme }) => {
+  applyTheme(theme || 'dark');
+});
+
+themeBtn.addEventListener('click', async () => {
+  const current = document.documentElement.getAttribute('data-theme') || 'dark';
+  const next    = current === 'dark' ? 'light' : 'dark';
+  applyTheme(next);
+  await chrome.storage.local.set({ theme: next });
+});
+
 // ── Boot ──────────────────────────────────────────────────────
 loadData();

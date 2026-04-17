@@ -537,4 +537,23 @@ document.querySelectorAll('.db-filter-btn').forEach(btn => {
   if (geminiApiKey) geminiKeyInput.value = geminiApiKey;
   if (aiLanguage)   document.getElementById('aiLanguage').value = aiLanguage;
   if (geminiModel)  document.getElementById('geminiModel').value = geminiModel;
+  // Load theme
+  const { theme = 'dark' } = await chrome.storage.local.get('theme');
+  applyOptionsTheme(theme);
 })();
+
+// ── Theme (Options page) ──────────────────────────────────────
+function applyOptionsTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  document.getElementById('themeDarkBtn') .classList.toggle('active', theme === 'dark');
+  document.getElementById('themeLightBtn').classList.toggle('active', theme === 'light');
+}
+
+document.querySelectorAll('.theme-mode-btn').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const t = btn.dataset.t;
+    applyOptionsTheme(t);
+    await chrome.storage.local.set({ theme: t });
+    showSaved('✓ Theme saved');
+  });
+});

@@ -21,6 +21,35 @@
   --r: 12px;
 }
 
+/* ── Light Theme ──────────────────────────────────────────── */
+[data-theme="light"] {
+  --bg:        #f0f4f8;
+  --bg2:       #e8eef5;
+  --bg3:       #dce4ee;
+  --sidebar:   #e2e8f3;
+  --card:      rgba(0,0,0,.04);
+  --card-h:    rgba(0,0,0,.07);
+  --border:    rgba(0,0,0,.08);
+  --border2:   rgba(0,0,0,.15);
+  --accent:    #6366f1;
+  --accent2:   #4338ca;
+  --txt:       #0f172a;
+  --txt2:      #475569;
+  --txt3:      #94a3b8;
+  --danger:    #dc2626;
+  --green:     #16a34a;
+}
+[data-theme="light"] html,
+[data-theme="light"] body { background: var(--bg); color: var(--txt); }
+[data-theme="light"] .sidebar { border-right-color: var(--border); }
+[data-theme="light"] .card { background: #fff; border-color: var(--border); box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+[data-theme="light"] .text-input,
+[data-theme="light"] .select-input,
+[data-theme="light"] .db-search { background: #fff; border-color: var(--border2); color: var(--txt); }
+[data-theme="light"] .db-list { background: #fff; }
+[data-theme="light"] .ws-card,
+[data-theme="light"] .ws-chart-block { background: #fff; border-color: var(--border); box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+
 html, body { min-height: 100vh; background: var(--bg); color: var(--txt); font-family: 'Inter', sans-serif; }
 
 /* ── Layout ──────────────────────────────────────────────────── */
@@ -270,6 +299,26 @@ input:checked + .toggle-slider::before { left: calc(100% - 19px); background: va
   transition: all var(--transition);
 }
 .about-link:hover { background: rgba(99,102,241,.15); color: #fff; }
+
+/* ── Theme mode buttons ──────────────────────────────────────── */
+.theme-btns { display: flex; gap: 6px; flex-shrink: 0; }
+.theme-mode-btn {
+  background: var(--card);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  color: var(--txt2);
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px; font-weight: 600;
+  padding: 7px 14px;
+  transition: all var(--transition);
+}
+.theme-mode-btn:hover { border-color: var(--accent); color: var(--txt); }
+.theme-mode-btn.active {
+  background: rgba(99,102,241,.2);
+  border-color: rgba(99,102,241,.5);
+  color: var(--accent2);
+}
 
 /* ── Scrollbar ───────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; }
