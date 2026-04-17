@@ -200,6 +200,98 @@ async function renderHistory() {
   }).join('');
 }
 
+// ── Cookie Manager ────────────────────────────────────────────
+let allCookies = [];  // cache for filter
+
+function cookieExpiryBadge(c) {
+  if (!c.expirationDate) return `<span class="cookie-badge cb-session">Session</span>`;
+  const daysLeft = Math.round((c.expirationDate * 1000 - Date.now()) / 86400000);
+  if (daysLeft < 0) return `<span class="cookie-badge cb-session">Expired</span>`;
+  if (daysLeft < 8) return `<span class="cookie-badge cb-expires">${daysLeft}d left</span>`;
+  if (daysLeft < 365) return `<span class="cookie-badge cb-expires">${daysLeft}d</span>`;
+  return `<span class="cookie-badge cb-expires">${Math.round(daysLeft/365)}y</span>`;
+}
+
+function renderCookieList(cookies) {
+  const list  = document.getElementById('cookieList');
+  const empty = document.getElementById('noCookies');
+  document.getElementById('cookieCount').textContent = `${cookies.length} cookie${cookies.length !== 1 ? 's' : ''}`;
+
+  if (!cookies.length) {
+    list.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+
+  list.innerHTML = cookies.map((c, i) => {
+    const badges = [
+      c.httpOnly  ? `<span class="cookie-badge cb-httponly">HttpOnly</span>` : '',
+      c.secure    ? `<span class="cookie-badge cb-secure">Secure</span>`   : '',
+      c.sameSite && c.sameSite !== 'unspecified'
+                  ? `<span class="cookie-badge cb-samesite">${esc(c.sameSite)}</span>` : '',
+      cookieExpiryBadge(c),
+    ].join('');
+
+    return `
+    <div class="cookie-item" style="animation-delay:${i * 15}ms">
+      <div class="cookie-body">
+        <div class="cookie-name" title="${esc(c.name)}">${esc(c.name) || '<em>unnamed</em>'}</div>
+        <div class="cookie-domain">${esc(c.domain)} • ${esc(c.path)}</div>
+        <div class="cookie-badges">${badges}</div>
+      </div>
+      <button class="delete-cookie-btn" data-name="${esc(c.name)}" data-domain="${esc(c.domain)}" data-path="${esc(c.path)}" title="Delete this cookie">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/>
+          <path d="M9 6V4h6v2"/>
+        </svg>
+      </button>
+    </div>`;
+  }).join('');
+}
+
+async function renderCookies() {
+  if (!currentHostname) return;
+  // getAll by domain (Chrome includes parent domains automatically)
+  allCookies = await chrome.cookies.getAll({ domain: currentHostname });
+  // Sort: httpOnly first, then by name
+  allCookies.sort((a, b) => (b.httpOnly - a.httpOnly) || a.name.localeCompare(b.name));
+  renderCookieList(allCookies);
+}
+
+// Filter input
+document.getElementById('cookieFilter').addEventListener('input', (e) => {
+  const q = e.target.value.toLowerCase();
+  renderCookieList(q ? allCookies.filter(c => c.name.toLowerCase().includes(q)) : allCookies);
+});
+
+// Delete single cookie (event delegation on list)
+document.getElementById('cookieList').addEventListener('click', async (e) => {
+  const btn = e.target.closest('.delete-cookie-btn');
+  if (!btn) return;
+  btn.disabled = true;
+  await chrome.cookies.remove({
+    url:  `http${btn.dataset.domain.startsWith('.') ? 's' : ''}://${btn.dataset.domain.replace(/^\./, '')}${btn.dataset.path}`,
+    name: btn.dataset.name,
+  });
+  await renderCookies(); // refresh
+});
+
+// Delete All cookies for this site
+document.getElementById('deleteAllCookiesBtn').addEventListener('click', async () => {
+  const confirmBtn = document.getElementById('deleteAllCookiesBtn');
+  confirmBtn.textContent = '⏳';
+  confirmBtn.disabled = true;
+  for (const c of allCookies) {
+    const proto = c.secure ? 'https' : 'http';
+    const domain = c.domain.replace(/^\./, '');
+    await chrome.cookies.remove({ url: `${proto}://${domain}${c.path}`, name: c.name });
+  }
+  await renderCookies();
+  confirmBtn.disabled = false;
+  confirmBtn.textContent = 'Delete All';
+});
+
 // ── Update stats bar ─────────────────────────────────────────
 function updateStats(data) {
   const trackerCount = data.trackers?.length ?? 0;
@@ -230,6 +322,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     showPane(btn.dataset.tab + 'Tab');
+    if (btn.dataset.tab === 'cookies') renderCookies();
     if (btn.dataset.tab === 'history') {
       renderHistory();
       renderWhitelistSection();

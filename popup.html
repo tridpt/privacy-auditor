@@ -125,6 +125,7 @@
       <button class="tab-btn active" data-tab="trackers"    role="tab">Trackers</button>
       <button class="tab-btn"        data-tab="fingerprint" role="tab">Fingerprint</button>
       <button class="tab-btn"        data-tab="details"     role="tab">Details</button>
+      <button class="tab-btn"        data-tab="cookies"     role="tab">Cookies</button>
       <button class="tab-btn"        data-tab="history"     role="tab">History</button>
     </div>
 
@@ -203,6 +204,25 @@
             <div class="detail-val" id="dRecorders">—</div>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Tab: Cookies -->
+    <div id="cookiesTab" class="tab-pane hidden" role="tabpanel">
+      <div class="cookie-header">
+        <span class="cookie-count" id="cookieCount">0 cookies</span>
+        <button id="deleteAllCookiesBtn" class="delete-all-cookies-btn" title="Delete all cookies for this site">Delete All</button>
+      </div>
+      <div class="cookie-search-wrap">
+        <svg class="cookie-search-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input type="text" id="cookieFilter" class="cookie-filter" placeholder="Filter cookies…" autocomplete="off">
+      </div>
+      <div id="cookieList" class="item-list"></div>
+      <div id="noCookies" class="empty-state hidden">
+        <span>🍪</span>
+        <p>No cookies found for this site</p>
       </div>
     </div>
 
