@@ -314,3 +314,109 @@ input:checked + .toggle-slider::before { left: calc(100% - 19px); background: va
   flex-shrink: 0;
 }
 .select-input:focus { border-color: var(--accent); }
+
+/* ── Tracker DB Browser ─────────────────────────────────── */
+.db-toolbar {
+  display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+}
+.db-search-wrap {
+  flex: 1; min-width: 180px;
+  display: flex; align-items: center; gap: 8px;
+  background: var(--bg3);
+  border: 1px solid var(--border2); border-radius: 8px;
+  padding: 8px 12px;
+  transition: border-color var(--transition);
+}
+.db-search-wrap:focus-within { border-color: var(--accent); }
+.db-search-wrap svg { color: var(--txt3); flex-shrink: 0; }
+.db-search {
+  background: none; border: none; outline: none;
+  color: var(--txt); font-family: 'Inter', sans-serif; font-size: 12px;
+  width: 100%;
+}
+.db-search::placeholder { color: var(--txt3); }
+
+.db-filters {
+  display: flex; gap: 5px; flex-wrap: wrap;
+}
+.db-filter-btn {
+  background: var(--card);
+  border: 1px solid var(--border2);
+  border-radius: 999px;
+  color: var(--txt2);
+  cursor: pointer; font-family: 'Inter', sans-serif;
+  font-size: 11px; font-weight: 600;
+  padding: 5px 12px;
+  transition: all var(--transition);
+}
+.db-filter-btn:hover { border-color: var(--accent); color: var(--txt); }
+.db-filter-btn.active[data-filter="all"]      { background: rgba(99,102,241,.2); border-color: rgba(99,102,241,.5); color: #a5b4fc; }
+.db-filter-btn.active[data-filter="critical"] { background: rgba(220,38,38,.2);  border-color: rgba(220,38,38,.5);  color: #fca5a5; }
+.db-filter-btn.active[data-filter="high"]     { background: rgba(239,68,68,.15); border-color: rgba(239,68,68,.4);  color: #fca5a5; }
+.db-filter-btn.active[data-filter="medium"]   { background: rgba(245,158,11,.15);border-color: rgba(245,158,11,.4); color: #fde68a; }
+.db-filter-btn.active[data-filter="low"]      { background: rgba(34,197,94,.15); border-color: rgba(34,197,94,.4);  color: #86efac; }
+
+.db-stats {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  font-size: 11px; color: var(--txt3);
+}
+.db-stat-chip {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+
+.db-list {
+  display: flex; flex-direction: column; gap: 0;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  overflow: hidden;
+}
+.db-entry {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  transition: background var(--transition);
+  animation: fadeIn .15s ease;
+}
+.db-entry:last-child { border-bottom: none; }
+.db-entry:hover { background: var(--card-h); }
+
+.db-risk-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.dot-critical { background: #dc2626; box-shadow: 0 0 6px #dc262688; }
+.dot-high     { background: #ef4444; }
+.dot-medium   { background: #f59e0b; }
+.dot-low      { background: #22c55e; }
+
+.db-entry-main { flex: 1; min-width: 0; }
+.db-entry-name {
+  font-size: 13px; font-weight: 600; color: var(--txt);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.db-entry-domain {
+  font-size: 11px; color: var(--txt3); margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.db-cat-badge {
+  font-size: 10px; font-weight: 600;
+  padding: 2px 8px; border-radius: 999px;
+  white-space: nowrap; flex-shrink: 0;
+  background: rgba(99,102,241,.12);
+  border: 1px solid rgba(99,102,241,.2);
+  color: var(--accent2);
+}
+.db-risk-badge {
+  font-size: 10px; font-weight: 700;
+  padding: 2px 8px; border-radius: 999px;
+  white-space: nowrap; flex-shrink: 0;
+  text-transform: uppercase; letter-spacing: .3px;
+}
+.risk-critical { background: rgba(220,38,38,.2);  color: #fca5a5; border: 1px solid rgba(220,38,38,.3); }
+.risk-high     { background: rgba(239,68,68,.15); color: #fca5a5; border: 1px solid rgba(239,68,68,.25); }
+.risk-medium   { background: rgba(245,158,11,.15);color: #fde68a; border: 1px solid rgba(245,158,11,.25); }
+.risk-low      { background: rgba(34,197,94,.12); color: #86efac; border: 1px solid rgba(34,197,94,.25); }

@@ -31,6 +31,9 @@
       <a class="nav-item" data-sec="custom-rules" href="#custom-rules">
         <span>⚙️</span> Custom Block Rules
       </a>
+      <a class="nav-item" data-sec="tracker-db" href="#tracker-db">
+        <span>🗄️</span> Tracker Database
+      </a>
       <a class="nav-item" data-sec="ai-analysis" href="#ai-analysis">
         <span>🤖</span> AI Analysis
       </a>
@@ -114,6 +117,35 @@
         <div id="crList" class="domain-list"></div>
         <div id="crEmpty" class="list-empty">No custom rules. Domains you add here are always blocked.</div>
       </div>
+    </section>
+
+    <!-- ── Tracker Database Browser ─────────────────── -->
+    <section id="tracker-db" class="section">
+      <h1 class="section-title">🗄️ Tracker Database</h1>
+      <p class="section-desc">Browse all <span id="dbTotal">0</span> tracker domains that Privacy Auditor can detect, organized by risk and category.</p>
+
+      <div class="db-toolbar">
+        <div class="db-search-wrap">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input type="text" id="dbSearch" class="db-search" placeholder="Search by name or domain…">
+        </div>
+        <div class="db-filters">
+          <button class="db-filter-btn active" data-filter="all">All</button>
+          <button class="db-filter-btn" data-filter="critical">Critical</button>
+          <button class="db-filter-btn" data-filter="high">High</button>
+          <button class="db-filter-btn" data-filter="medium">Medium</button>
+          <button class="db-filter-btn" data-filter="low">Low</button>
+        </div>
+        <select id="dbCategoryFilter" class="select-input" style="font-size:12px;padding:6px 10px">
+          <option value="">All categories</option>
+        </select>
+      </div>
+
+      <div id="dbStats" class="db-stats"></div>
+      <div id="dbList" class="db-list"></div>
+      <div id="dbEmpty" class="list-empty" style="display:none">🔍 No matching trackers found.</div>
     </section>
 
     <!-- ── AI Analysis ────────────────────────────── -->

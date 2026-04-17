@@ -187,11 +187,102 @@ document.getElementById('geminiModel').addEventListener('change', async (e) => {
   showSaved();
 });
 
+// ── Tracker DB Browser ───────────────────────────────────────
+let allTrackers = [];
+let dbRiskFilter = 'all';
+let dbCatFilter  = '';
+
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function renderTrackerDB() {
+  const q      = (document.getElementById('dbSearch')?.value ?? '').toLowerCase();
+  const list   = document.getElementById('dbList');
+  const empty  = document.getElementById('dbEmpty');
+  const stats  = document.getElementById('dbStats');
+
+  let filtered = allTrackers;
+  if (dbRiskFilter !== 'all') filtered = filtered.filter(t => t.risk === dbRiskFilter);
+  if (dbCatFilter)            filtered = filtered.filter(t => t.category === dbCatFilter);
+  if (q) filtered = filtered.filter(t =>
+    t.name.toLowerCase().includes(q) || t.domain.toLowerCase().includes(q) || t.category.toLowerCase().includes(q)
+  );
+
+  // Stats chips
+  const counts = { critical: 0, high: 0, medium: 0, low: 0 };
+  filtered.forEach(t => { if (counts[t.risk] !== undefined) counts[t.risk]++; });
+  stats.innerHTML = [
+    `<span class="db-stat-chip">🔍 ${filtered.length} shown</span>`,
+    counts.critical ? `<span class="db-stat-chip" style="color:#fca5a5">⛔ ${counts.critical} Critical</span>` : '',
+    counts.high     ? `<span class="db-stat-chip" style="color:#fca5a5">🔴 ${counts.high} High</span>` : '',
+    counts.medium   ? `<span class="db-stat-chip" style="color:#fde68a">🟡 ${counts.medium} Medium</span>` : '',
+    counts.low      ? `<span class="db-stat-chip" style="color:#86efac">🟢 ${counts.low} Low</span>` : '',
+  ].join('');
+
+  if (!filtered.length) {
+    list.innerHTML = '';
+    empty.style.display = '';
+    return;
+  }
+  empty.style.display = 'none';
+
+  list.innerHTML = filtered.map(t => `
+    <div class="db-entry">
+      <div class="db-risk-dot dot-${esc(t.risk)}"></div>
+      <div class="db-entry-main">
+        <div class="db-entry-name">${esc(t.name)}</div>
+        <div class="db-entry-domain">${esc(t.domain)}</div>
+      </div>
+      <span class="db-cat-badge">${esc(t.category)}</span>
+      <span class="db-risk-badge risk-${esc(t.risk)}">${esc(t.risk)}</span>
+    </div>`).join('');
+}
+
+async function loadTrackerDB() {
+  const resp = await chrome.runtime.sendMessage({ type: 'GET_TRACKER_DB' });
+  allTrackers = resp?.trackers ?? [];
+
+  // Sort: critical → high → medium → low, then by name
+  const order = { critical: 0, high: 1, medium: 2, low: 3 };
+  allTrackers.sort((a, b) => (order[a.risk] ?? 4) - (order[b.risk] ?? 4) || a.name.localeCompare(b.name));
+
+  document.getElementById('dbTotal').textContent = allTrackers.length;
+
+  // Populate category dropdown
+  const cats = [...new Set(allTrackers.map(t => t.category))].sort();
+  const sel  = document.getElementById('dbCategoryFilter');
+  cats.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c; opt.textContent = c;
+    sel.appendChild(opt);
+  });
+
+  renderTrackerDB();
+}
+
+document.getElementById('dbSearch')?.addEventListener('input', renderTrackerDB);
+
+document.getElementById('dbCategoryFilter')?.addEventListener('change', (e) => {
+  dbCatFilter = e.target.value;
+  renderTrackerDB();
+});
+
+document.querySelectorAll('.db-filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.db-filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    dbRiskFilter = btn.dataset.filter;
+    renderTrackerDB();
+  });
+});
+
 // ── Init ──────────────────────────────────────────────────────
 (async () => {
   await loadSettings();
   await loadWhitelist();
   await loadCustomRules();
+  await loadTrackerDB();
   // Load AI settings
   const { geminiApiKey, aiLanguage, geminiModel } =
     await chrome.storage.local.get(['geminiApiKey', 'aiLanguage', 'geminiModel']);

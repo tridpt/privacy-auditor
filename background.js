@@ -857,6 +857,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ rules: [...customRuleMap.keys()] });
       return true;
     }
+
+    case 'GET_TRACKER_DB': {
+      // Serialize TRACKERS map: [{ domain, name, category, risk }]
+      const entries = Object.entries(TRACKERS).map(([domain, info]) => ({
+        domain, ...info,
+      }));
+      sendResponse({ trackers: entries });
+      return true;
+    }
   }
 
   return false;
