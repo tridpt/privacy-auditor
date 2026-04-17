@@ -122,31 +122,42 @@ const NOTIFY_THRESHOLD = 45; // score below this triggers alert
 const NOTIFY_DELAY_MS  = 3500; // wait for network requests to settle
 
 function maybeNotify(tabId) {
-  if (notifiedTabs.has(tabId)) return;          // already notified this page
-  if (!tabData.has(tabId)) return;
+  console.log('[PA] maybeNotify()', tabId);
+  if (notifiedTabs.has(tabId)) { console.log('[PA] already notified'); return; }
+  if (!tabData.has(tabId))     { console.log('[PA] no tab data');      return; }
 
   const d     = tabData.get(tabId);
   const score = calculateScore(d);
-  if (score >= NOTIFY_THRESHOLD) return;         // score is acceptable
+  console.log('[PA] score:', score, '| trackers:', d.trackers.size, '| threshold:', NOTIFY_THRESHOLD);
+  if (score >= NOTIFY_THRESHOLD) return;
 
-  notifiedTabs.add(tabId);                       // mark so we don't spam
+  notifiedTabs.add(tabId);
 
   const trackerCount = d.trackers.size;
   const hostname     = getDomain(d.url || '') || 'This page';
   const grade        = score < 20 ? 'Very Invasive' : 'Bad Privacy';
+  const notifId      = `pa-${tabId}-${Date.now()}`;
 
-  chrome.notifications.create(`pa-${tabId}-${Date.now()}`, {
+  console.log('[PA] Creating notification:', notifId);
+  chrome.notifications.create(notifId, {
     type:     'basic',
     iconUrl:  'icons/icon48.png',
     title:    `⚠️ Privacy Alert — ${grade} (${score}/100)`,
     message:  `${hostname} is running ${trackerCount} tracker${trackerCount !== 1 ? 's' : ''}. Your data is being collected.`,
     priority: 1,
+  }, (id) => {
+    if (chrome.runtime.lastError) {
+      console.error('[PA] Notification error:', chrome.runtime.lastError.message);
+    } else {
+      console.log('[PA] Notification shown:', id);
+    }
   });
 }
 
 // Schedule a delayed notification (resets timer each call, fires once)
 function scheduleNotify(tabId) {
   if (notifiedTabs.has(tabId)) return;
+  console.log('[PA] scheduleNotify()', tabId);
   if (pendingTimers.has(tabId)) clearTimeout(pendingTimers.get(tabId));
   const handle = setTimeout(() => {
     pendingTimers.delete(tabId);
@@ -462,11 +473,16 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     initTabData(tabId, tab.url || '');
     chrome.action.setBadgeText({ text: '', tabId });
     notifiedTabs.delete(tabId);
-    // Cancel any pending notification for this tab
     if (pendingTimers.has(tabId)) {
       clearTimeout(pendingTimers.get(tabId));
       pendingTimers.delete(tabId);
     }
+  }
+
+  // Page fully loaded — best time to check score (all requests captured)
+  if (changeInfo.status === 'complete') {
+    console.log('[PA] tab complete, checking score for tab', tabId);
+    setTimeout(() => maybeNotify(tabId), 500); // short delay for last requests
   }
 });
 
@@ -630,6 +646,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case 'GET_GLOBAL_PROTECTION': {
       chrome.storage.local.get(['globalProtection'], (r) => {
         sendResponse({ globalProtection: !!r.globalProtection });
+      });
+      return true;
+    }
+
+    case 'TEST_NOTIFICATION': {
+      chrome.notifications.create(`pa-test-${Date.now()}`, {
+        type:     'basic',
+        iconUrl:  'icons/icon48.png',
+        title:    '🔔 Privacy Auditor — Test',
+        message:  'Notifications are working correctly!',
+        priority: 2,
+      }, (id) => {
+        if (chrome.runtime.lastError) {
+          sendResponse({ ok: false, error: chrome.runtime.lastError.message });
+        } else {
+          sendResponse({ ok: true, id });
+        }
       });
       return true;
     }
