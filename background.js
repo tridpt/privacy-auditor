@@ -113,6 +113,35 @@ async function disableGlobalProtection() {
   console.log('[PrivacyAuditor] Global OFF');
 }
 
+// ── Desktop notifications ───────────────────────────────────────
+// Tracks tabs that already received a notification this page load
+const notifiedTabs = new Set();
+
+const NOTIFY_THRESHOLD = 45; // score below this triggers alert
+
+function maybeNotify(tabId) {
+  if (notifiedTabs.has(tabId)) return;          // already notified this page
+  if (!tabData.has(tabId)) return;
+
+  const d     = tabData.get(tabId);
+  const score = calculateScore(d);
+  if (score >= NOTIFY_THRESHOLD) return;         // score is acceptable
+
+  notifiedTabs.add(tabId);                       // mark so we don't spam
+
+  const trackerCount = d.trackers.size;
+  const hostname     = getDomain(d.url || '') || 'This page';
+  const grade        = score < 20 ? 'Very Invasive' : 'Bad Privacy';
+
+  chrome.notifications.create(`pa-${tabId}-${Date.now()}`, {
+    type:     'basic',
+    iconUrl:  'icons/icon48.png',
+    title:    `⚠️ Privacy Alert — ${grade} (${score}/100)`,
+    message:  `${hostname} is running ${trackerCount} tracker${trackerCount !== 1 ? 's' : ''}. Your data is being collected.`,
+    priority: 1,
+  });
+}
+
 const TRACKERS = {
   // ── Google ──────────────────────────────────────────────
   'google-analytics.com':     { name: 'Google Analytics',     category: 'Analytics',         risk: 'medium' },
@@ -414,8 +443,9 @@ chrome.webRequest.onBeforeRequest.addListener(
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status === 'loading') {
     initTabData(tabId, tab.url || '');
-    // Clear badge for fresh page load
+    // Clear badge and notification flag for fresh page load
     chrome.action.setBadgeText({ text: '', tabId });
+    notifiedTabs.delete(tabId);
   }
 });
 
@@ -462,6 +492,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
       }
       updateBadge(senderTabId); // refresh badge after DOM scan
+      maybeNotify(senderTabId); // send desktop alert if score is bad
       break;
     }
 
