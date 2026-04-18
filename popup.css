@@ -1127,7 +1127,7 @@ body {
 
 /* ── Auto-Rescan ──────────────────────────────────────────── */
 .auto-rescan-wrap {
-  display: flex; align-items: center; gap: 4px;
+  display: flex; align-items: center; gap: 6px;
 }
 
 .auto-rescan-btn {
@@ -1163,7 +1163,8 @@ body {
   cursor: pointer;
   font-family: 'Inter', sans-serif;
   font-size: 10px;
-  padding: 3px 5px;
+  padding: 3px 8px 3px 6px;
+  margin-right: 2px;
   outline: none;
   transition: all var(--transition);
 }
