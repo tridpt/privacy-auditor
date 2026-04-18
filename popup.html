@@ -200,6 +200,7 @@
       <button class="tab-btn active" data-tab="trackers"    role="tab">Trackers</button>
       <button class="tab-btn"        data-tab="fingerprint" role="tab">Fingerprint</button>
       <button class="tab-btn"        data-tab="csp"         role="tab">CSP</button>
+      <button class="tab-btn"        data-tab="perms"       role="tab">Perms</button>
       <button class="tab-btn"        data-tab="details"     role="tab">Details</button>
       <button class="tab-btn"        data-tab="cookies"     role="tab">Cookies</button>
       <button class="tab-btn"        data-tab="history"     role="tab">History</button>
@@ -247,6 +248,33 @@
       <div id="cspMissing" class="empty-state hidden">
         <span>⚠️</span>
         <p>No CSP header found — this site has no content security policy.</p>
+      </div>
+    </div>
+
+    <!-- Tab: Permission Audit -->
+    <div id="permsTab" class="tab-pane hidden" role="tabpanel">
+      <!-- Summary -->
+      <div class="perms-summary" id="permsSummary">
+        <div class="perms-summary-left">
+          <div id="permsGrantedCount" class="perms-big-num">—</div>
+          <div class="perms-big-lbl">Permissions Granted</div>
+        </div>
+        <div class="perms-chips" id="permsChips"></div>
+      </div>
+
+      <!-- Loading state -->
+      <div id="permsLoading" class="perms-loading">
+        <div class="spinner"></div>
+        <span>Querying permissions…</span>
+      </div>
+
+      <!-- Permissions grid -->
+      <div id="permsGrid" class="perms-grid hidden"></div>
+
+      <!-- All denied / no data -->
+      <div id="permsClean" class="empty-state hidden">
+        <span>✅</span>
+        <p>No sensitive permissions granted on this site.</p>
       </div>
     </div>
 

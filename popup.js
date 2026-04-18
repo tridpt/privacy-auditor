@@ -45,6 +45,129 @@ function scoreColor(score) {
   return getGrade(score).color;
 }
 
+// ── Permission Audit ──────────────────────────────────────────
+const PERM_META = {
+  geolocation:        { label: 'Location',       icon: '📍', risk: 'critical', rgb: '239,68,68',   color: '#ef4444', desc: 'Precise GPS / network location' },
+  camera:             { label: 'Camera',         icon: '📷', risk: 'critical', rgb: '239,68,68',   color: '#ef4444', desc: 'Video capture from camera' },
+  microphone:         { label: 'Microphone',     icon: '🎤', risk: 'critical', rgb: '239,68,68',   color: '#ef4444', desc: 'Audio capture from microphone' },
+  notifications:      { label: 'Notifications',  icon: '🔔', risk: 'high',     rgb: '249,115,22',  color: '#f97316', desc: 'Show desktop notifications' },
+  'clipboard-read':   { label: 'Clipboard Read', icon: '📋', risk: 'high',     rgb: '249,115,22',  color: '#f97316', desc: 'Read clipboard contents silently' },
+  'clipboard-write':  { label: 'Clipboard Write',icon: '✏️', risk: 'medium',   rgb: '234,179,8',   color: '#eab308', desc: 'Write data to clipboard' },
+  'payment-handler':  { label: 'Payment',        icon: '💳', risk: 'high',     rgb: '249,115,22',  color: '#f97316', desc: 'Handle payment requests' },
+  push:               { label: 'Push Messages',  icon: '📡', risk: 'medium',   rgb: '234,179,8',   color: '#eab308', desc: 'Receive push messages when inactive' },
+  'background-sync':  { label: 'BG Sync',        icon: '🔄', risk: 'medium',   rgb: '234,179,8',   color: '#eab308', desc: 'Sync data in background' },
+  'persistent-storage':{ label: 'Persist Storage',icon: '💾', risk: 'low',    rgb: '99,102,241',  color: '#6366f1', desc: 'Persist data across sessions' },
+  'screen-wake-lock': { label: 'Wake Lock',      icon: '🔆', risk: 'low',     rgb: '99,102,241',  color: '#6366f1', desc: 'Prevent screen from sleeping' },
+  midi:               { label: 'MIDI',           icon: '🎵', risk: 'medium',   rgb: '234,179,8',   color: '#eab308', desc: 'Access MIDI musical devices' },
+};
+
+async function auditPermissions(tabId) {
+  try {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: async (permNames) => {
+        const out = [];
+        for (const name of permNames) {
+          try {
+            const status = await navigator.permissions.query({ name });
+            out.push({ name, state: status.state });
+          } catch (_) {
+            out.push({ name, state: 'unsupported' });
+          }
+        }
+        return out;
+      },
+      args: [Object.keys(PERM_META)],
+    });
+    return results?.[0]?.result ?? [];
+  } catch (_) {
+    return [];
+  }
+}
+
+async function renderPermsTab(tabId) {
+  const loadingEl = document.getElementById('permsLoading');
+  const gridEl    = document.getElementById('permsGrid');
+  const cleanEl   = document.getElementById('permsClean');
+  const numEl     = document.getElementById('permsGrantedCount');
+  const chipsEl   = document.getElementById('permsChips');
+
+  loadingEl.classList.remove('hidden');
+  gridEl.classList.add('hidden');
+  cleanEl.classList.add('hidden');
+  numEl.textContent = '—';
+  chipsEl.innerHTML = '';
+
+  const perms = await auditPermissions(tabId);
+
+  loadingEl.classList.add('hidden');
+
+  const granted = perms.filter(p => p.state === 'granted' && PERM_META[p.name]);
+  const denied  = perms.filter(p => p.state === 'denied'  && PERM_META[p.name]);
+  const prompt  = perms.filter(p => p.state === 'prompt'  && PERM_META[p.name]);
+
+  // Summary number
+  numEl.textContent = granted.length || '0';
+  numEl.className   = 'perms-big-num' + (granted.length === 0 ? ' safe' : '');
+
+  // Risk chips for granted
+  const riskOrder = ['critical','high','medium','low'];
+  const byRisk = {};
+  granted.forEach(p => {
+    const r = PERM_META[p.name].risk;
+    byRisk[r] = (byRisk[r] || 0) + 1;
+  });
+  chipsEl.innerHTML = riskOrder
+    .filter(r => byRisk[r])
+    .map(r => `<span class="perm-chip ${r}">${byRisk[r]} ${r}</span>`)
+    .join('');
+
+  if (granted.length === 0 && denied.length === 0 && prompt.length === 0) {
+    cleanEl.classList.remove('hidden');
+    return;
+  }
+
+  // Sort: granted first (by risk), then denied, then prompt
+  const riskScore = { critical: 0, high: 1, medium: 2, low: 3 };
+  const sorted = [
+    ...granted.sort((a,b) => (riskScore[PERM_META[a.name].risk]??9) - (riskScore[PERM_META[b.name].risk]??9)),
+    ...denied,
+    ...prompt.filter(p => PERM_META[p.name]),
+  ];
+
+  gridEl.innerHTML = sorted.map((p, i) => {
+    const meta  = PERM_META[p.name];
+    if (!meta) return '';
+    const state = p.state;
+    let stateClass, stateLabel;
+    if (state === 'granted') {
+      stateClass = `granted-${meta.risk}`;
+      stateLabel = 'Granted';
+    } else if (state === 'denied') {
+      stateClass = 'denied';
+      stateLabel = 'Denied ✓';
+    } else {
+      stateClass = 'prompt';
+      stateLabel = 'Not asked';
+    }
+    const colorStyle = state === 'granted'
+      ? `--perm-color:${meta.color};--perm-rgb:${meta.rgb};`
+      : '';
+    return `
+      <div class="perm-card state-${state}" style="${colorStyle}animation-delay:${i*25}ms">
+        <span class="perm-icon">${meta.icon}</span>
+        <div class="perm-body">
+          <div class="perm-name">${esc(meta.label)}</div>
+          <div class="perm-desc">${esc(meta.desc)}</div>
+        </div>
+        <span class="perm-state ${stateClass}">${stateLabel}</span>
+      </div>`;
+  }).join('');
+
+  gridEl.classList.remove('hidden');
+  if (granted.length === 0) cleanEl.classList.remove('hidden');
+}
+
 // ── CSP Analyzer ─────────────────────────────────────────────
 const CSP_DIRECTIVES_ORDER = [
   'default-src','script-src','script-src-elem','style-src','style-src-elem',
@@ -622,7 +745,8 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.classList.add('active');
     showPane(btn.dataset.tab + 'Tab');
     if (btn.dataset.tab === 'cookies') renderCookies();
-    if (btn.dataset.tab === 'csp' && currentTabId) renderCspTab(currentTabId);
+    if (btn.dataset.tab === 'csp'  && currentTabId) renderCspTab(currentTabId);
+    if (btn.dataset.tab === 'perms' && currentTabId) renderPermsTab(currentTabId);
     if (btn.dataset.tab === 'history') {
       renderHistory();
       renderWhitelistSection();

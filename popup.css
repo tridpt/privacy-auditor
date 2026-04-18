@@ -331,8 +331,8 @@ body {
 .tab-btn {
   background: none; border: none;
   color: var(--txt3);
-  font-size: 11px; font-weight: 500;
-  padding: 8px 10px;
+  font-size: 10.5px; font-weight: 500;
+  padding: 8px 7px;
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
   transition: all var(--transition);
@@ -1124,3 +1124,91 @@ body {
 .csp-dir-val .unsafe { color: #fca5a5; font-weight: 700; }
 .csp-dir-val .wildcard { color: #fde68a; font-weight: 700; }
 .csp-dir-val .safe { color: #86efac; }
+
+/* ── Permissions Audit ───────────────────────────────────── */
+.perms-loading {
+  display: flex; align-items: center; gap: 10px;
+  padding: 24px 14px;
+  color: var(--txt3); font-size: 12px;
+}
+.perms-loading .spinner { width: 20px; height: 20px; border-width: 2px; }
+
+.perms-summary {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px 8px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.perms-summary-left { display: flex; align-items: baseline; gap: 6px; flex-shrink: 0; }
+.perms-big-num {
+  font-size: 28px; font-weight: 900;
+  line-height: 1;
+  background: linear-gradient(135deg, #f43f5e, #f97316);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.perms-big-num.safe {
+  background: linear-gradient(135deg, #22c55e, #84cc16);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.perms-big-lbl { font-size: 10px; color: var(--txt3); font-weight: 600; }
+
+.perms-chips {
+  display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px;
+}
+.perm-chip {
+  font-size: 9px; font-weight: 700;
+  padding: 2px 7px; border-radius: 999px;
+  text-transform: uppercase; letter-spacing: .4px;
+}
+.perm-chip.critical { background: rgba(239,68,68,.18); color: #fca5a5; }
+.perm-chip.high     { background: rgba(249,115,22,.18); color: #fed7aa; }
+.perm-chip.medium   { background: rgba(234,179,8,.18);  color: #fde68a; }
+.perm-chip.low      { background: rgba(99,102,241,.15); color: #c4b5fd; }
+
+/* Permission cards grid */
+.perms-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 8px 14px 10px;
+}
+.perm-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: flex; align-items: center; gap: 8px;
+  transition: all var(--transition);
+  animation: fadeUp .2s ease both;
+  position: relative; overflow: hidden;
+}
+.perm-card::before {
+  content: ''; position: absolute;
+  left: 0; top: 0; bottom: 0; width: 3px;
+}
+.perm-card.state-granted::before { background: var(--perm-color, #ef4444); }
+.perm-card.state-denied::before  { background: #22c55e; }
+.perm-card.state-prompt::before  { background: #64748b; }
+
+.perm-card.state-granted { border-color: rgba(var(--perm-rgb, 239,68,68),.3); }
+.perm-card.state-denied  { border-color: rgba(34,197,94,.2); opacity: .65; }
+.perm-card.state-prompt  { opacity: .55; }
+
+.perm-icon { font-size: 18px; flex-shrink: 0; }
+.perm-body { flex: 1; min-width: 0; }
+.perm-name {
+  font-size: 10.5px; font-weight: 700; color: var(--txt);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.perm-desc { font-size: 9px; color: var(--txt3); margin-top: 1px; }
+.perm-state {
+  font-size: 9px; font-weight: 800;
+  padding: 1px 6px; border-radius: 999px;
+  flex-shrink: 0; align-self: flex-start;
+  text-transform: uppercase; letter-spacing: .3px;
+}
+.perm-state.granted-critical { background: rgba(239,68,68,.2);  color: #fca5a5; }
+.perm-state.granted-high     { background: rgba(249,115,22,.2); color: #fed7aa; }
+.perm-state.granted-medium   { background: rgba(234,179,8,.2);  color: #fde68a; }
+.perm-state.granted-low      { background: rgba(99,102,241,.15); color: #c4b5fd; }
+.perm-state.denied           { background: rgba(34,197,94,.15); color: #86efac; }
+.perm-state.prompt           { background: rgba(100,116,139,.15); color: var(--txt3); }
