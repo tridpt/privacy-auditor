@@ -102,14 +102,14 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
+  padding: 12px 20px 12px 16px;
   background: linear-gradient(135deg, #1a1040 0%, #0f172a 100%);
   border-bottom: 1px solid var(--border);
   position: sticky; top: 0; z-index: 10;
 }
 
 .header-actions {
-  display: flex; align-items: center; gap: 10px;
+  display: flex; align-items: center; gap: 6px;
 }
 
 .logo { display: flex; align-items: center; gap: 9px; }
@@ -1140,7 +1140,7 @@ body {
   font-family: 'Inter', sans-serif;
   font-size: 10px; font-weight: 700;
   letter-spacing: .3px;
-  padding: 4px 9px;
+  padding: 3px 7px;
   transition: all var(--transition);
 }
 .auto-rescan-btn:hover { color: var(--txt); border-color: #6366f1; }
@@ -1163,8 +1163,7 @@ body {
   cursor: pointer;
   font-family: 'Inter', sans-serif;
   font-size: 10px;
-  padding: 3px 8px 3px 6px;
-  margin-right: 2px;
+  padding: 3px 4px;
   outline: none;
   transition: all var(--transition);
 }
