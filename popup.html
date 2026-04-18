@@ -357,15 +357,28 @@
 
     <!-- Tab: Cookies -->
     <div id="cookiesTab" class="tab-pane hidden" role="tabpanel">
+      <!-- Header row -->
       <div class="cookie-header">
         <span class="cookie-count" id="cookieCount">0 cookies</span>
-        <button id="deleteAllCookiesBtn" class="delete-all-cookies-btn" title="Delete all cookies for this site">Delete All</button>
+        <div style="display:flex;gap:5px;align-items:center">
+          <div id="cookieRiskSummary" class="cookie-risk-summary"></div>
+          <button id="deleteAllCookiesBtn" class="delete-all-cookies-btn" title="Delete all cookies">Delete All</button>
+        </div>
       </div>
-      <div class="cookie-search-wrap">
-        <svg class="cookie-search-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-        </svg>
-        <input type="text" id="cookieFilter" class="cookie-filter" placeholder="Filter cookies…" autocomplete="off">
+      <!-- Search + filter bar -->
+      <div class="cookie-toolbar">
+        <div class="cookie-search-wrap">
+          <svg class="cookie-search-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input type="text" id="cookieFilter" class="cookie-filter" placeholder="Filter by name…" autocomplete="off">
+        </div>
+        <div class="cookie-filter-btns" id="cookieFilterBtns">
+          <button class="ci-filter-btn active" data-filter="all">All</button>
+          <button class="ci-filter-btn" data-filter="risky">⚠️ Risky</button>
+          <button class="ci-filter-btn" data-filter="session">Session</button>
+          <button class="ci-filter-btn" data-filter="persistent">Persistent</button>
+        </div>
       </div>
       <div id="cookieList" class="item-list"></div>
       <div id="noCookies" class="empty-state hidden">

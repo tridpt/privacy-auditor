@@ -811,6 +811,131 @@ body {
 }
 .delete-cookie-btn:hover { color: #ef4444; background: rgba(239,68,68,.12); }
 
+/* ── Cookie Inspector enhancements ──────────────────────── */
+.cookie-toolbar {
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 14px 6px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+.cookie-toolbar .cookie-search-wrap { flex: 1; min-width: 100px; }
+
+.cookie-filter-btns {
+  display: flex; gap: 3px; flex-shrink: 0;
+}
+.ci-filter-btn {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--txt3);
+  font-size: 9.5px; font-weight: 600;
+  padding: 3px 7px; cursor: pointer;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+.ci-filter-btn:hover  { color: var(--txt2); border-color: var(--border2); }
+.ci-filter-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(99,102,241,.1); }
+
+/* Risk summary mini-chips in header */
+.cookie-risk-summary { display: flex; gap: 4px; align-items: center; }
+.cookie-risk-summary .crisk-chip {
+  font-size: 8.5px; font-weight: 800;
+  padding: 1px 5px; border-radius: 999px;
+}
+.crisk-chip.danger  { background: rgba(239,68,68,.18); color: #fca5a5; }
+.crisk-chip.warn    { background: rgba(249,115,22,.18); color: #fed7aa; }
+
+/* The cookie card itself — risk left-border */
+.cookie-item {
+  position: relative; overflow: visible;
+}
+.cookie-item::before {
+  content: ''; position: absolute;
+  left: 0; top: 4px; bottom: 4px; width: 3px;
+  border-radius: 2px;
+  transition: background var(--transition);
+}
+.cookie-item.risk-high::before   { background: #ef4444; }
+.cookie-item.risk-medium::before { background: #f97316; }
+.cookie-item.risk-low::before    { background: #22c55e; }
+
+/* Expand toggle */
+.ci-expand-btn {
+  background: none; border: none;
+  color: var(--txt3); cursor: pointer;
+  font-size: 10px; padding: 2px 4px;
+  line-height: 1; border-radius: 4px;
+  transition: all var(--transition);
+  flex-shrink: 0; align-self: center;
+}
+.ci-expand-btn:hover { color: var(--txt2); background: var(--card-hover); }
+.ci-expand-btn.open  { transform: rotate(90deg); }
+
+/* Expandable detail panel */
+.ci-detail {
+  display: none;
+  margin: 4px 0 2px;
+  padding: 8px 10px;
+  background: rgba(255,255,255,.03);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  animation: fadeUp .15s ease both;
+}
+.ci-detail.open { display: block; }
+.ci-detail-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 5px 10px;
+}
+.ci-attr { display: flex; flex-direction: column; gap: 2px; }
+.ci-attr-key {
+  font-size: 8.5px; font-weight: 700;
+  color: var(--txt3); text-transform: uppercase; letter-spacing: .4px;
+}
+.ci-attr-val {
+  font-size: 10px; color: var(--txt2);
+  display: flex; align-items: center; gap: 4px;
+}
+.ci-attr-val.flagged { color: #fca5a5; font-weight: 700; }
+.ci-attr-val.secure  { color: #86efac; }
+
+/* Value row (full-width) */
+.ci-value-row {
+  margin-top: 6px; padding-top: 5px;
+  border-top: 1px solid var(--border);
+}
+.ci-value-label {
+  font-size: 8.5px; font-weight: 700; color: var(--txt3);
+  text-transform: uppercase; letter-spacing: .4px; margin-bottom: 3px;
+}
+.ci-value-box {
+  display: flex; align-items: center; gap: 6px;
+}
+.ci-value-text {
+  font-family: 'JetBrains Mono','Fira Code', monospace;
+  font-size: 9px; color: var(--txt2);
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 4px; padding: 3px 6px;
+  flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  cursor: text; user-select: all;
+}
+.ci-copy-btn {
+  background: none; border: 1px solid var(--border);
+  border-radius: 4px; color: var(--txt3);
+  font-size: 9px; padding: 2px 6px;
+  cursor: pointer; transition: all var(--transition);
+  white-space: nowrap; flex-shrink: 0;
+}
+.ci-copy-btn:hover   { border-color: var(--accent); color: var(--accent); }
+.ci-copy-btn.copied  { border-color: #22c55e; color: #86efac; }
+
+/* Risk warning line */
+.ci-risk-warn {
+  margin-top: 5px; padding: 4px 7px;
+  background: rgba(239,68,68,.06);
+  border: 1px solid rgba(239,68,68,.2);
+  border-radius: 5px; font-size: 9.5px;
+  color: #fca5a5; font-weight: 600;
+  display: flex; align-items: center; gap: 5px;
+}
+
 /* ── Footer settings button ──────────────────────────────── */
 .footer-settings-btn {
   background: none; border: none;

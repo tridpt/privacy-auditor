@@ -669,10 +669,44 @@ function cookieExpiryBadge(c) {
   return `<span class="cookie-badge cb-expires">${Math.round(daysLeft/365)}y</span>`;
 }
 
+// ── Cookie Inspector ──────────────────────────────────────────
+let ciFilter = 'all';   // 'all' | 'risky' | 'session' | 'persistent'
+
+function cookieRisk(c) {
+  // Returns 'high' | 'medium' | 'low' based on missing security flags
+  const issues = [];
+  if (!c.secure)                                     issues.push('missing Secure flag');
+  if (!c.httpOnly)                                   issues.push('missing HttpOnly');
+  if (!c.sameSite || c.sameSite === 'unspecified')   issues.push('no SameSite policy');
+  if (issues.length >= 2) return { level: 'high',   issues };
+  if (issues.length === 1) return { level: 'medium', issues };
+  return { level: 'low', issues: [] };
+}
+
+function formatExpiry(c) {
+  if (!c.expirationDate) return { label: 'Session', cls: 'cb-session' };
+  const d   = new Date(c.expirationDate * 1000);
+  const day = Math.round((c.expirationDate * 1000 - Date.now()) / 86400000);
+  if (day < 0)   return { label: 'Expired', cls: 'cb-expires' };
+  if (day < 8)   return { label: `${day}d left`, cls: 'cb-expires' };
+  if (day < 365) return { label: `${day}d`, cls: 'cb-expires' };
+  return { label: `${Math.round(day / 365)}y  (${d.toLocaleDateString()})`, cls: 'cb-expires' };
+}
+
 function renderCookieList(cookies) {
-  const list  = document.getElementById('cookieList');
-  const empty = document.getElementById('noCookies');
-  document.getElementById('cookieCount').textContent = `${cookies.length} cookie${cookies.length !== 1 ? 's' : ''}`;
+  const list    = document.getElementById('cookieList');
+  const empty   = document.getElementById('noCookies');
+  const riskEl  = document.getElementById('cookieRiskSummary');
+  document.getElementById('cookieCount').textContent =
+    `${cookies.length} cookie${cookies.length !== 1 ? 's' : ''}`;
+
+  // Risk summary chips
+  const highCount = cookies.filter(c => cookieRisk(c).level === 'high').length;
+  const medCount  = cookies.filter(c => cookieRisk(c).level === 'medium').length;
+  riskEl.innerHTML = [
+    highCount ? `<span class="crisk-chip danger">${highCount} high-risk</span>` : '',
+    medCount  ? `<span class="crisk-chip warn">${medCount} medium</span>` : '',
+  ].join('');
 
   if (!cookies.length) {
     list.innerHTML = '';
@@ -682,56 +716,170 @@ function renderCookieList(cookies) {
   empty.classList.add('hidden');
 
   list.innerHTML = cookies.map((c, i) => {
+    const risk   = cookieRisk(c);
+    const expiry = formatExpiry(c);
+    const isSession = !c.expirationDate;
+    const ssLabel = c.sameSite && c.sameSite !== 'unspecified' ? c.sameSite : '—';
+    const ssClass = c.sameSite === 'strict' ? 'secure'
+                  : c.sameSite === 'lax'    ? ''
+                  : 'flagged';
+
     const badges = [
-      c.httpOnly  ? `<span class="cookie-badge cb-httponly">HttpOnly</span>` : '',
-      c.secure    ? `<span class="cookie-badge cb-secure">Secure</span>`   : '',
-      c.sameSite && c.sameSite !== 'unspecified'
-                  ? `<span class="cookie-badge cb-samesite">${esc(c.sameSite)}</span>` : '',
-      cookieExpiryBadge(c),
+      c.httpOnly ? `<span class="cookie-badge cb-httponly">HttpOnly</span>` : '',
+      c.secure   ? `<span class="cookie-badge cb-secure">Secure</span>`     : '',
+      ssLabel !== '—' ? `<span class="cookie-badge cb-samesite">${esc(ssLabel)}</span>` : '',
+      `<span class="cookie-badge ${expiry.cls}">${expiry.label}</span>`,
     ].join('');
 
+    // Detailed attribute rows
+    const riskWarnings = risk.issues.length
+      ? `<div class="ci-risk-warn">⚠️ ${risk.issues.join(' · ')}</div>`
+      : '';
+
+    const valuePreview = c.value
+      ? (c.value.length > 80 ? c.value.slice(0, 80) + '…' : c.value)
+      : '(empty)';
+
+    const detail = `
+      <div class="ci-detail" id="ci-detail-${i}">
+        <div class="ci-detail-grid">
+          <div class="ci-attr">
+            <span class="ci-attr-key">Domain</span>
+            <span class="ci-attr-val">${esc(c.domain)}</span>
+          </div>
+          <div class="ci-attr">
+            <span class="ci-attr-key">Path</span>
+            <span class="ci-attr-val">${esc(c.path)}</span>
+          </div>
+          <div class="ci-attr">
+            <span class="ci-attr-key">Secure</span>
+            <span class="ci-attr-val ${c.secure ? 'secure' : 'flagged'}">${c.secure ? '✓ Yes' : '✗ No'}</span>
+          </div>
+          <div class="ci-attr">
+            <span class="ci-attr-key">HttpOnly</span>
+            <span class="ci-attr-val ${c.httpOnly ? 'secure' : 'flagged'}">${c.httpOnly ? '✓ Yes' : '✗ No'}</span>
+          </div>
+          <div class="ci-attr">
+            <span class="ci-attr-key">SameSite</span>
+            <span class="ci-attr-val ${ssClass}">${esc(ssLabel)}</span>
+          </div>
+          <div class="ci-attr">
+            <span class="ci-attr-key">Type</span>
+            <span class="ci-attr-val ${isSession ? '' : 'secure'}">${isSession ? 'Session' : 'Persistent'}</span>
+          </div>
+          <div class="ci-attr">
+            <span class="ci-attr-key">Expires</span>
+            <span class="ci-attr-val">${expiry.label}</span>
+          </div>
+          <div class="ci-attr">
+            <span class="ci-attr-key">HostOnly</span>
+            <span class="ci-attr-val">${c.hostOnly ? '✓ Yes' : '✗ No'}</span>
+          </div>
+        </div>
+        ${riskWarnings}
+        <div class="ci-value-row">
+          <div class="ci-value-label">Value</div>
+          <div class="ci-value-box">
+            <div class="ci-value-text" title="${esc(c.value)}">${esc(valuePreview)}</div>
+            <button class="ci-copy-btn" data-value="${esc(c.value)}">Copy</button>
+          </div>
+        </div>
+      </div>`;
+
     return `
-    <div class="cookie-item" style="animation-delay:${i * 15}ms">
-      <div class="cookie-body">
-        <div class="cookie-name" title="${esc(c.name)}">${esc(c.name) || '<em>unnamed</em>'}</div>
-        <div class="cookie-domain">${esc(c.domain)} • ${esc(c.path)}</div>
-        <div class="cookie-badges">${badges}</div>
+    <div class="cookie-item risk-${risk.level}" style="flex-direction:column;align-items:stretch;animation-delay:${i * 15}ms">
+      <div style="display:flex;align-items:center;gap:6px;padding:0">
+        <div class="cookie-body" style="flex:1;min-width:0">
+          <div class="cookie-name" title="${esc(c.name)}">${esc(c.name) || '<em>unnamed</em>'}</div>
+          <div class="cookie-badges">${badges}</div>
+        </div>
+        <button class="ci-expand-btn" data-idx="${i}" title="Inspect" aria-expanded="false">▶</button>
+        <button class="delete-cookie-btn"
+          data-name="${esc(c.name)}" data-domain="${esc(c.domain)}" data-path="${esc(c.path)}"
+          title="Delete">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/>
+            <path d="M9 6V4h6v2"/>
+          </svg>
+        </button>
       </div>
-      <button class="delete-cookie-btn" data-name="${esc(c.name)}" data-domain="${esc(c.domain)}" data-path="${esc(c.path)}" title="Delete this cookie">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/>
-          <path d="M9 6V4h6v2"/>
-        </svg>
-      </button>
+      ${detail}
     </div>`;
   }).join('');
 }
 
 async function renderCookies() {
   if (!currentHostname) return;
-  // getAll by domain (Chrome includes parent domains automatically)
   allCookies = await chrome.cookies.getAll({ domain: currentHostname });
-  // Sort: httpOnly first, then by name
-  allCookies.sort((a, b) => (b.httpOnly - a.httpOnly) || a.name.localeCompare(b.name));
-  renderCookieList(allCookies);
+  // Sort: high-risk first, then by name
+  allCookies.sort((a, b) => {
+    const rA = { high: 0, medium: 1, low: 2 }[cookieRisk(a).level] ?? 3;
+    const rB = { high: 0, medium: 1, low: 2 }[cookieRisk(b).level] ?? 3;
+    return rA - rB || a.name.localeCompare(b.name);
+  });
+  applyAndRenderCookies();
+}
+
+function applyAndRenderCookies() {
+  const q = (document.getElementById('cookieFilter')?.value ?? '').toLowerCase();
+  let filtered = allCookies;
+
+  if (q) filtered = filtered.filter(c => c.name.toLowerCase().includes(q) || c.domain.includes(q));
+  if (ciFilter === 'risky')      filtered = filtered.filter(c => cookieRisk(c).level !== 'low');
+  if (ciFilter === 'session')    filtered = filtered.filter(c => !c.expirationDate);
+  if (ciFilter === 'persistent') filtered = filtered.filter(c => !!c.expirationDate);
+
+  renderCookieList(filtered);
 }
 
 // Filter input
-document.getElementById('cookieFilter').addEventListener('input', (e) => {
-  const q = e.target.value.toLowerCase();
-  renderCookieList(q ? allCookies.filter(c => c.name.toLowerCase().includes(q)) : allCookies);
+document.getElementById('cookieFilter').addEventListener('input', applyAndRenderCookies);
+
+// Filter tab buttons
+document.getElementById('cookieFilterBtns').addEventListener('click', (e) => {
+  const btn = e.target.closest('.ci-filter-btn');
+  if (!btn) return;
+  document.querySelectorAll('.ci-filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  ciFilter = btn.dataset.filter;
+  applyAndRenderCookies();
 });
 
-// Delete single cookie (event delegation on list)
+// Cookie list event delegation: expand, copy, delete
 document.getElementById('cookieList').addEventListener('click', async (e) => {
-  const btn = e.target.closest('.delete-cookie-btn');
-  if (!btn) return;
-  btn.disabled = true;
+  // ── Expand toggle ──────────────────────────────────────────
+  const expandBtn = e.target.closest('.ci-expand-btn');
+  if (expandBtn) {
+    const idx    = expandBtn.dataset.idx;
+    const detail = document.getElementById(`ci-detail-${idx}`);
+    if (!detail) return;
+    const open = detail.classList.toggle('open');
+    expandBtn.classList.toggle('open', open);
+    expandBtn.setAttribute('aria-expanded', open);
+    return;
+  }
+
+  // ── Copy value btn ──────────────────────────────────────────
+  const copyBtn = e.target.closest('.ci-copy-btn');
+  if (copyBtn) {
+    try {
+      await navigator.clipboard.writeText(copyBtn.dataset.value ?? '');
+      copyBtn.textContent = '✓ Copied';
+      copyBtn.classList.add('copied');
+      setTimeout(() => { copyBtn.textContent = 'Copy'; copyBtn.classList.remove('copied'); }, 1800);
+    } catch (_) {}
+    return;
+  }
+
+  // ── Delete single cookie ────────────────────────────────────
+  const deleteBtn = e.target.closest('.delete-cookie-btn');
+  if (!deleteBtn) return;
+  deleteBtn.disabled = true;
   await chrome.cookies.remove({
-    url:  `http${btn.dataset.domain.startsWith('.') ? 's' : ''}://${btn.dataset.domain.replace(/^\./, '')}${btn.dataset.path}`,
-    name: btn.dataset.name,
+    url:  `http${deleteBtn.dataset.domain.startsWith('.') ? 's' : ''}://${deleteBtn.dataset.domain.replace(/^\./, '')}${deleteBtn.dataset.path}`,
+    name: deleteBtn.dataset.name,
   });
-  await renderCookies(); // refresh
+  await renderCookies();
 });
 
 // Delete All cookies for this site
