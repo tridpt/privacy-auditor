@@ -2380,17 +2380,32 @@ updateNcBadge();
 
 // ── Boot ──────────────────────────────────────────────────────
 
-// ── Tab row scroll indicator ──────────────────────────────────
+// ── Tab row arrow navigation ──────────────────────────────────
 (function() {
-  const tabs = document.getElementById('tabsRow');
-  const wrap = tabs?.parentElement;
-  if (!tabs || !wrap) return;
-  function checkScroll() {
-    const atEnd = tabs.scrollLeft + tabs.clientWidth >= tabs.scrollWidth - 4;
-    wrap.classList.toggle('at-end', atEnd);
+  const tabs  = document.getElementById('tabsRow');
+  const btnL  = document.getElementById('tabArrowLeft');
+  const btnR  = document.getElementById('tabArrowRight');
+  if (!tabs || !btnL || !btnR) return;
+
+  const STEP = 110; // px per click
+
+  function updateArrows() {
+    const atStart = tabs.scrollLeft <= 2;
+    const atEnd   = tabs.scrollLeft + tabs.clientWidth >= tabs.scrollWidth - 4;
+    btnL.classList.toggle('hidden', atStart);
+    btnR.classList.toggle('hidden', atEnd);
   }
-  tabs.addEventListener('scroll', checkScroll, { passive: true });
-  checkScroll();
+
+  btnL.addEventListener('click', () => {
+    tabs.scrollBy({ left: -STEP, behavior: 'smooth' });
+  });
+  btnR.addEventListener('click', () => {
+    tabs.scrollBy({ left: STEP, behavior: 'smooth' });
+  });
+  tabs.addEventListener('scroll', updateArrows, { passive: true });
+
+  // Initial state
+  updateArrows();
 })();
 loadData();
 
