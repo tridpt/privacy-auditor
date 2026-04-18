@@ -86,9 +86,26 @@
   <!-- ── Main Content ─────────────────────────────────────── -->
   <div id="mainContent" class="main-content hidden">
 
+    <!-- Score Breakdown Modal -->
+    <div id="scoreBreakdownOverlay" class="sb-overlay hidden" role="dialog" aria-modal="true" aria-label="Score Breakdown">
+      <div class="sb-modal">
+        <div class="sb-header">
+          <div class="sb-title">📊 Score Breakdown</div>
+          <button id="sbClose" class="sb-close" aria-label="Close">✕</button>
+        </div>
+        <div class="sb-score-row">
+          <div id="sbTotalScore" class="sb-total-num">—</div>
+          <div class="sb-total-lbl">/ 100 Privacy Score</div>
+          <div id="sbGradePill" class="sb-grade-pill"></div>
+        </div>
+        <div class="sb-factors" id="sbFactors"></div>
+        <div class="sb-footer">Score starts at 100 — each detected risk deducts points.</div>
+      </div>
+    </div>
+
     <!-- Score gauge -->
     <div class="score-section">
-      <div class="gauge-wrap">
+      <div class="gauge-wrap" id="gaugeWrap" title="Click to see score breakdown" style="cursor:pointer">
         <svg class="gauge-svg" viewBox="0 0 220 130" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <filter id="glow">
@@ -110,6 +127,7 @@
           <text id="scoreNum" x="110" y="98" text-anchor="middle" class="svg-score">0</text>
           <text x="110" y="116" text-anchor="middle" class="svg-label">/ 100</text>
         </svg>
+        <div class="gauge-hint">tap for breakdown ↗</div>
       </div>
 
       <div id="scoreGrade" class="score-grade">—</div>

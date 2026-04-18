@@ -45,6 +45,164 @@ function scoreColor(score) {
   return getGrade(score).color;
 }
 
+// ── Score Breakdown ───────────────────────────────────────────
+/**
+ * Mirrors calculateScore() in background.js but returns each
+ * factor as a named object so the modal can display them.
+ */
+function scoreBreakdownFactors(data) {
+  const trackers  = data.trackers ?? [];
+  const fpApis    = data.fingerprinting ?? [];
+  const ext       = data.requests?.external ?? 0;
+  const ck        = data.cookies?.count ?? 0;
+  const hasCritical = trackers.some(t => t.risk === 'critical');
+  const highRisk    = trackers.filter(t => t.risk === 'high').length;
+  const fpCount     = fpApis.length;
+
+  // tracker base penalty
+  const trackerPenalty = Math.min(trackers.length * 5, 35);
+
+  // critical tracker penalty
+  const criticalPenalty = hasCritical ? 20 : 0;
+
+  // high-risk tracker penalty
+  const highPenalty = Math.min(highRisk * 2, 10);
+
+  // fingerprinting penalty
+  const fpPenalty = Math.min(fpCount * 5, 15);
+
+  // external requests penalty
+  let extPenalty = 0;
+  if      (ext > 200) extPenalty = 28;
+  else if (ext > 100) extPenalty = 22;
+  else if (ext >  50) extPenalty = 16;
+  else if (ext >  25) extPenalty = 10;
+  else if (ext >  10) extPenalty =  5;
+  else if (ext >   5) extPenalty =  2;
+
+  // cookie penalty
+  let ckPenalty = 0;
+  if      (ck > 30) ckPenalty = 10;
+  else if (ck > 15) ckPenalty =  5;
+  else if (ck >  5) ckPenalty =  2;
+
+  // first-party penalty: data comes through from background, flag via firstPartyNote
+  const fpSitePenalty = data.firstPartyNote ? 15 : 0;
+
+  const factors = [
+    {
+      icon: '🔍', name: 'Trackers Detected',
+      detail: trackers.length
+        ? `${trackers.length} tracker${trackers.length > 1?'s':''} found`
+        : 'No trackers detected',
+      penalty: trackerPenalty, maxPenalty: 35,
+      color: '#ef4444',
+    },
+    {
+      icon: '☠️', name: 'Critical / Session Recorders',
+      detail: hasCritical
+        ? `${trackers.filter(t=>t.risk==='critical').length} critical-risk tracker(s) active`
+        : 'None detected',
+      penalty: criticalPenalty, maxPenalty: 20,
+      color: '#dc2626',
+    },
+    {
+      icon: '🔴', name: 'High-Risk Trackers',
+      detail: highRisk ? `${highRisk} high-risk tracker(s)` : 'None detected',
+      penalty: highPenalty, maxPenalty: 10,
+      color: '#f97316',
+    },
+    {
+      icon: '🖐️', name: 'Browser Fingerprinting',
+      detail: fpCount
+        ? `${fpCount} API${fpCount>1?'s':''} used (Canvas, WebGL, Audio…)`
+        : 'No fingerprinting detected',
+      penalty: fpPenalty, maxPenalty: 15,
+      color: '#a855f7',
+    },
+    {
+      icon: '🌐', name: 'External Requests',
+      detail: `${ext} external request${ext!==1?'s':''}`,
+      penalty: extPenalty, maxPenalty: 28,
+      color: '#6366f1',
+    },
+    {
+      icon: '🍪', name: 'Cookie Count',
+      detail: `${ck} cookie${ck!==1?'s':''} set`,
+      penalty: ckPenalty, maxPenalty: 10,
+      color: '#eab308',
+    },
+    {
+      icon: '🏢', name: 'First-Party Data Collector',
+      detail: data.firstPartyNote ?? 'Site is not a known data collector',
+      penalty: fpSitePenalty, maxPenalty: 20,
+      color: '#f43f5e',
+    },
+  ];
+
+  const totalDeducted = factors.reduce((s, f) => s + f.penalty, 0);
+  const score = Math.max(0, Math.round(100 - totalDeducted));
+
+  return { factors, score };
+}
+
+function renderScoreBreakdown(data) {
+  if (!data) return;
+  const { factors, score } = scoreBreakdownFactors(data);
+  const grade = getGrade(score);
+
+  document.getElementById('sbTotalScore').textContent = score;
+  const pill = document.getElementById('sbGradePill');
+  pill.textContent = grade.label;
+  pill.style.cssText = `background:${grade.color}22;color:${grade.color};`;
+
+  const sbFactors = document.getElementById('sbFactors');
+  sbFactors.innerHTML = factors.map((f, i) => {
+    const hasPenalty = f.penalty > 0;
+    const barPct     = hasPenalty ? Math.round((f.penalty / f.maxPenalty) * 100) : 0;
+    const cls        = hasPenalty ? 'penalty' : 'ok';
+    const colorStyle = hasPenalty ? `--factor-color:${f.color};` : '';
+    return `
+      <div class="sb-factor ${cls}" style="${colorStyle}animation-delay:${i*40}ms">
+        <span class="sb-factor-icon">${f.icon}</span>
+        <div class="sb-factor-body">
+          <div class="sb-factor-name">${esc(f.name)}</div>
+          <div class="sb-factor-detail">${esc(f.detail)}</div>
+          ${hasPenalty ? `<div class="sb-factor-bar">
+            <div class="sb-factor-bar-fill" style="width:0" data-pct="${barPct}"></div>
+          </div>` : ''}
+        </div>
+        <span class="sb-deduction ${hasPenalty ? 'loss' : 'ok'}">
+          ${hasPenalty ? `−${f.penalty}` : '✓ +0'}
+        </span>
+      </div>`;
+  }).join('');
+
+  // Animate bars after render
+  requestAnimationFrame(() => {
+    sbFactors.querySelectorAll('.sb-factor-bar-fill').forEach(el => {
+      el.style.width = el.dataset.pct + '%';
+    });
+  });
+}
+
+// Open / close breakdown
+function openScoreBreakdown() {
+  if (!currentData) return;
+  renderScoreBreakdown(currentData);
+  document.getElementById('scoreBreakdownOverlay').classList.remove('hidden');
+}
+function closeScoreBreakdown() {
+  document.getElementById('scoreBreakdownOverlay').classList.add('hidden');
+}
+
+// Wire events once DOM is ready
+document.getElementById('gaugeWrap').addEventListener('click', openScoreBreakdown);
+document.getElementById('sbClose').addEventListener('click', closeScoreBreakdown);
+document.getElementById('scoreBreakdownOverlay').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) closeScoreBreakdown(); // click outside modal
+});
+
 // ── Permission Audit ──────────────────────────────────────────
 const PERM_META = {
   geolocation:        { label: 'Location',       icon: '📍', risk: 'critical', rgb: '239,68,68',   color: '#ef4444', desc: 'Precise GPS / network location' },
