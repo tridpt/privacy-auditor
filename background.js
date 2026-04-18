@@ -451,7 +451,8 @@ function initTabData(tabId, url = '') {
     localStorage:    0,
     sessionStorage:  0,
     csp:             null,
-    blockedRequests: 0,   // requests blocked by declarativeNetRequest this tab
+    blockedRequests: 0,
+    mixedContent:    [],   // HTTP sub-resources detected on an HTTPS page
     url,
     timestamp:       Date.now(),
   });
@@ -670,6 +671,22 @@ chrome.webRequest.onBeforeRequest.addListener(
         data.trackers.get(key).requestCount++;
       }
     }
+
+    // ── Mixed content detection ───────────────────────────────
+    // Flag HTTP resources loaded on an HTTPS page
+    const pageUrl = initiator || data.url || '';
+    if (pageUrl.startsWith('https://') && url.startsWith('http://')) {
+      if (data.mixedContent.length < 50) {  // cap to avoid memory bloat
+        const already = data.mixedContent.some(m => m.url === url);
+        if (!already) {
+          data.mixedContent.push({
+            url,
+            domain: reqDomain || getDomain(url) || url,
+            type:   details.type,   // 'script','image','stylesheet','xmlhttprequest',…
+          });
+        }
+      }
+    }
   },
   { urls: ['<all_urls>'] }
 );
@@ -810,8 +827,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           timestamp:        d.timestamp,
           firstPartyNote:   fpInfo.note || null,
           blocked:          [...blockedRules.keys()],
-          blockedRequests:  d.blockedRequests,   // blocked this tab
-          lifetimeBlocked,                       // all-time total
+          blockedRequests:  d.blockedRequests,
+          lifetimeBlocked,
+          isHttps:          d.url?.startsWith('https://') ?? false,
+          mixedContent:     d.mixedContent ?? [],
         });
       })();
 

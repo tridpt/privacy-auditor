@@ -546,6 +546,69 @@ function renderDetails(data) {
   document.getElementById('dRecorders').textContent  = recorders ? `${recorders} found ⚠️` : 'None ✅';
 }
 
+// ── Render: HTTPS / Mixed Content ────────────────────────────
+function renderHttpsBanner(isHttps, mixedContent = []) {
+  const banner     = document.getElementById('httpsBanner');
+  const iconEl     = document.getElementById('httpsIcon');
+  const labelEl    = document.getElementById('httpsLabel');
+  const countEl    = document.getElementById('mixedCount');
+  const toggleBtn  = document.getElementById('mixedToggle');
+  const listEl     = document.getElementById('mixedList');
+
+  banner.classList.remove('hidden', 'secure', 'mixed', 'insecure');
+  countEl.classList.add('hidden');
+  toggleBtn.classList.add('hidden');
+  listEl.classList.add('hidden');
+  toggleBtn.classList.remove('open');
+
+  if (!isHttps) {
+    // Full HTTP page
+    banner.classList.add('insecure');
+    iconEl.textContent  = '🔓';
+    labelEl.textContent = 'Not Secure — HTTP connection';
+    return;
+  }
+
+  if (mixedContent.length === 0) {
+    // Full HTTPS, no mixed content
+    banner.classList.add('secure');
+    iconEl.textContent  = '🔒';
+    labelEl.textContent = 'Secure — HTTPS';
+    return;
+  }
+
+  // HTTPS + mixed content
+  banner.classList.add('mixed');
+  iconEl.textContent  = '⚠️';
+  labelEl.textContent = 'Mixed Content Detected';
+
+  countEl.textContent = `${mixedContent.length} insecure resource${mixedContent.length > 1 ? 's' : ''}`;
+  countEl.classList.remove('hidden');
+  toggleBtn.classList.remove('hidden');
+
+  // Type risk color: script/stylesheet = active mixed (worst)
+  const ACTIVE_TYPES = new Set(['script', 'stylesheet', 'xmlhttprequest', 'websocket', 'font']);
+  const sorted = [...mixedContent].sort((a, b) => {
+    const aA = ACTIVE_TYPES.has(a.type) ? 0 : 1;
+    const bA = ACTIVE_TYPES.has(b.type) ? 0 : 1;
+    return aA - bA;
+  });
+
+  listEl.innerHTML = sorted.map(item => {
+    const typeClass = ACTIVE_TYPES.has(item.type) ? item.type : '';
+    return `
+      <div class="mixed-item">
+        <span class="mixed-type ${typeClass}">${esc(item.type)}</span>
+        <span class="mixed-domain" title="${esc(item.url)}">${esc(item.domain)}</span>
+      </div>`;
+  }).join('');
+
+  toggleBtn.addEventListener('click', () => {
+    const open = listEl.classList.toggle('hidden');
+    toggleBtn.classList.toggle('open', !open);
+  }, { once: false });
+}
+
 // ── Render: History ───────────────────────────────────────────
 function scoreClass(score) {
   if (score >= 80) return 'score-good';
@@ -1016,6 +1079,9 @@ async function loadData() {
     } else {
       banner.classList.add('hidden');
     }
+
+    // HTTPS / Mixed Content indicator
+    renderHttpsBanner(data.isHttps ?? tab.url?.startsWith('https://'), data.mixedContent ?? []);
 
     currentTabId = tab.id;
     currentData  = data;    // save for export
