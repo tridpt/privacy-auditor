@@ -1319,6 +1319,9 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     if (btn.dataset.tab === 'cookies') renderCookies();
     if (btn.dataset.tab === 'csp'  && currentTabId) renderCspTab(currentTabId);
     if (btn.dataset.tab === 'perms' && currentTabId) renderPermsTab(currentTabId);
+    if (btn.dataset.tab === 'network') {
+      document.dispatchEvent(new CustomEvent('tabSwitch', { detail: 'network' }));
+    }
     if (btn.dataset.tab === 'history') {
       renderHistory();
       renderWhitelistSection();
@@ -2370,3 +2373,111 @@ updateNcBadge();
 
 // ── Boot ──────────────────────────────────────────────────────
 loadData();
+
+// ── Network Waterfall ─────────────────────────────────────────
+const WF_COLORS = {
+  script:           { color: '#818cf8', label: 'JS' },
+  stylesheet:       { color: '#38bdf8', label: 'CSS' },
+  image:            { color: '#34d399', label: 'IMG' },
+  xmlhttprequest:   { color: '#fb923c', label: 'XHR' },
+  fetch:            { color: '#f472b6', label: 'Fetch' },
+  font:             { color: '#a78bfa', label: 'Font' },
+  media:            { color: '#fbbf24', label: 'Media' },
+  websocket:        { color: '#2dd4bf', label: 'WS' },
+  ping:             { color: '#94a3b8', label: 'Ping' },
+  other:            { color: '#64748b', label: 'Other' },
+};
+const TRACKER_BAR_COLOR = '#ef4444';
+
+function wfColor(type) { return WF_COLORS[type]?.color ?? WF_COLORS.other.color; }
+function wfLabel(type) { return WF_COLORS[type]?.label ?? type.slice(0,4).toUpperCase(); }
+
+let wfAllRows = [];
+let wfFilter  = 'all';
+
+async function renderNetworkWaterfall(tabId) {
+  const resp = await chrome.runtime.sendMessage({ type: 'GET_REQUEST_LOG', tabId });
+  const log  = resp?.log ?? [];
+
+  const emptyEl = document.getElementById('wfEmpty');
+  const rowsEl  = document.getElementById('wfRows');
+  const distBar = document.getElementById('wfDistBar');
+  const legend  = document.getElementById('wfLegend');
+  const totalEl = document.getElementById('wfTotal');
+
+  if (!log.length) {
+    emptyEl.classList.remove('hidden');
+    rowsEl.innerHTML = '';
+    distBar.innerHTML = '';
+    legend.innerHTML  = '';
+    totalEl.textContent = '0 requests';
+    return;
+  }
+  emptyEl.classList.add('hidden');
+
+  const typeCounts = {};
+  for (const r of log) { typeCounts[r.type] = (typeCounts[r.type] ?? 0) + 1; }
+  totalEl.textContent = log.length + ' requests';
+
+  const sortedTypes = Object.entries(typeCounts).sort((a, b) => b[1] - a[1]);
+
+  distBar.innerHTML = sortedTypes.map(([t, count]) => {
+    const pct = (count / log.length * 100).toFixed(1);
+    return `<div class="wf-dist-seg" style="width:${pct}%;background:${wfColor(t)}" title="${wfLabel(t)}: ${count}"></div>`;
+  }).join('');
+
+  legend.innerHTML = sortedTypes.map(([t, count]) =>
+    `<div class="wf-leg-item"><div class="wf-leg-dot" style="background:${wfColor(t)}"></div>${wfLabel(t)} ${count}</div>`
+  ).join('');
+
+  wfAllRows = log;
+  wfFilter  = 'all';
+  document.querySelectorAll('.wf-chip').forEach(c => c.classList.toggle('active', c.dataset.filter === 'all'));
+  renderWfRows(rowsEl);
+}
+
+function renderWfRows(rowsEl) {
+  const log   = wfAllRows;
+  const maxMs = Math.max(...log.map(r => r.relMs), 1);
+
+  const filtered = wfFilter === 'all'      ? log
+    : wfFilter === 'tracker'  ? log.filter(r => r.isTracker)
+    : wfFilter === 'external' ? log.filter(r => r.isExternal)
+    : log.filter(r => r.type === wfFilter);
+
+  if (!filtered.length) {
+    rowsEl.innerHTML = '<div class="wf-empty" style="padding:16px">No requests match this filter</div>';
+    return;
+  }
+
+  rowsEl.innerHTML = filtered.map((r, i) => {
+    const color    = r.isTracker ? TRACKER_BAR_COLOR : wfColor(r.type);
+    const barWidth = Math.max(2, Math.round((r.relMs / maxMs) * 100));
+    const domCls   = r.isTracker ? 'tracker-domain' : '';
+    const rowCls   = r.isTracker ? 'is-tracker' : '';
+    const tip      = r.domain + ' | ' + r.relMs + 'ms' + (r.isTracker ? ' | TRACKER' : '');
+    return `<div class="wf-row ${rowCls}" style="animation-delay:${Math.min(i,40)*7}ms" title="${esc(tip)}">
+      <div class="wf-row-type" style="color:${color}">${esc(wfLabel(r.type))}</div>
+      <div class="wf-row-domain ${domCls}">${esc(r.domain)}</div>
+      <div class="wf-bar-wrap">
+        <div class="wf-bar" style="width:${barWidth}%;background:${color}88;border-left:2px solid ${color}"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+document.getElementById('wfFilters').addEventListener('click', (e) => {
+  const chip = e.target.closest('.wf-chip');
+  if (!chip) return;
+  document.querySelectorAll('.wf-chip').forEach(c => c.classList.remove('active'));
+  chip.classList.add('active');
+  wfFilter = chip.dataset.filter;
+  renderWfRows(document.getElementById('wfRows'));
+});
+
+document.addEventListener('tabSwitch', (e) => {
+  if (e.detail === 'network' && currentTabId) {
+    wfAllRows = []; wfFilter = 'all';
+    renderNetworkWaterfall(currentTabId);
+  }
+});

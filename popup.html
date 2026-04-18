@@ -241,6 +241,7 @@
       <button class="tab-btn"        data-tab="perms"       role="tab">Perms</button>
       <button class="tab-btn"        data-tab="details"     role="tab">Details</button>
       <button class="tab-btn"        data-tab="cookies"     role="tab">Cookies</button>
+      <button class="tab-btn"        data-tab="network"     role="tab">Network</button>
       <button class="tab-btn"        data-tab="history"     role="tab">History</button>
     </div>
 
@@ -438,6 +439,31 @@
         </div>
         <div id="whitelistItems" class="item-list"></div>
       </div>
+    </div>
+
+    <!-- Tab: Network Waterfall -->
+    <div id="networkTab" class="tab-pane hidden" role="tabpanel">
+      <!-- Type distribution bar -->
+      <div class="wf-section">
+        <div class="wf-dist-header">
+          <span class="wf-dist-title">Request Types</span>
+          <span id="wfTotal" class="wf-dist-total">0 requests</span>
+        </div>
+        <div id="wfDistBar" class="wf-dist-bar"></div>
+        <div id="wfLegend" class="wf-legend"></div>
+      </div>
+      <!-- Filter chips -->
+      <div class="wf-filter-row" id="wfFilters">
+        <button class="wf-chip active" data-filter="all">All</button>
+        <button class="wf-chip" data-filter="tracker">🔍 Trackers</button>
+        <button class="wf-chip" data-filter="external">🌐 External</button>
+        <button class="wf-chip" data-filter="script">JS</button>
+        <button class="wf-chip" data-filter="xmlhttprequest">XHR</button>
+        <button class="wf-chip" data-filter="image">IMG</button>
+      </div>
+      <!-- Waterfall rows -->
+      <div id="wfRows" class="wf-rows"></div>
+      <div id="wfEmpty" class="wf-empty hidden">⏱️ Reload the page to capture network data</div>
     </div>
 
   </div><!-- /main-content -->

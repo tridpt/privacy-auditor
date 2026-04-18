@@ -467,13 +467,15 @@ function initTabData(tabId, url = '') {
   tabData.set(tabId, {
     trackers:        new Map(),
     requests:        { total: 0, external: 0 },
+    requestLog:      [],   // per-request entries for waterfall
+    startTs:         Date.now(),
     fingerprinting:  new Set(),
     cookies:         { count: 0 },
     localStorage:    0,
     sessionStorage:  0,
     csp:             null,
     blockedRequests: 0,
-    mixedContent:    [],   // HTTP sub-resources detected on an HTTPS page
+    mixedContent:    [],
     url,
     timestamp:       Date.now(),
   });
@@ -671,11 +673,26 @@ chrome.webRequest.onBeforeRequest.addListener(
     // Count as external only if truly a different org
     const isSubdomain = reqDomain && pageDomain &&
       (reqDomain.endsWith('.' + pageDomain) || pageDomain.endsWith('.' + reqDomain));
-
-    if (reqDomain && pageDomain && reqDomain !== pageDomain
+    const isExternal = reqDomain && pageDomain && reqDomain !== pageDomain
         && !isSubdomain
-        && !isSameFamily(reqDomain, pageDomain)) {
+        && !isSameFamily(reqDomain, pageDomain);
 
+    // ── Request log for waterfall ─────────────────────────────
+    if (data.requestLog.length < 250) {
+      const relMs = Date.now() - data.startTs;
+      const tracker = isExternal ? matchTracker(reqDomain) : null;
+      data.requestLog.push({
+        type:       details.type,
+        domain:     reqDomain || pageDomain || '',
+        url:        url.slice(0, 120),
+        relMs,
+        isExternal: !!isExternal,
+        isTracker:  !!tracker,
+        risk:       tracker ? tracker.risk : null,
+      });
+    }
+
+    if (isExternal) {
       data.requests.external++;
 
       const tracker = matchTracker(reqDomain);
@@ -684,7 +701,6 @@ chrome.webRequest.onBeforeRequest.addListener(
         if (!data.trackers.has(key)) {
           data.trackers.set(key, { ...tracker, domain: reqDomain, requestCount: 0 });
           updateBadge(tabId);
-          // Schedule delayed notification when meaningful tracker found
           if (tracker.risk === 'high' || tracker.risk === 'critical') {
             scheduleNotify(tabId);
           }
@@ -856,6 +872,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       })();
 
       return true; // keep message port open for async response
+    }
+
+    case 'GET_REQUEST_LOG': {
+      const tabId = message.tabId;
+      const d = tabData.get(tabId);
+      sendResponse({ log: d ? d.requestLog : [], startTs: d ? d.startTs : 0 });
+      return true;
     }
 
     case 'BLOCK_DOMAIN': {
