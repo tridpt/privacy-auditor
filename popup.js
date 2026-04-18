@@ -45,6 +45,236 @@ function scoreColor(score) {
   return getGrade(score).color;
 }
 
+// ── CSP Analyzer ─────────────────────────────────────────────
+const CSP_DIRECTIVES_ORDER = [
+  'default-src','script-src','script-src-elem','style-src','style-src-elem',
+  'img-src','connect-src','font-src','media-src','frame-src',
+  'frame-ancestors','form-action','base-uri','object-src','worker-src',
+  'manifest-src','child-src','navigate-to',
+];
+
+const CSP_CHECKS = [
+  // ─ Critical ──────────────────────────────────────────────────
+  { dirs: ['script-src','default-src'], pattern: /'unsafe-inline'/,
+    severity: 'critical', icon: '⛔',
+    title: "'unsafe-inline' in script-src",
+    sub: 'Allows arbitrary inline <script> execution — negates XSS protection.' },
+  { dirs: ['script-src','default-src'], pattern: /'unsafe-eval'/,
+    severity: 'critical', icon: '⛔',
+    title: "'unsafe-eval' in script-src",
+    sub: 'Allows eval(), Function(), setTimeout(string) — XSS vector.' },
+  { dirs: ['script-src','default-src'], pattern: /\bhttp:/,
+    severity: 'critical', icon: '⛔',
+    title: 'HTTP source in script-src',
+    sub: 'Scripts from insecure HTTP can be MITM-injected.' },
+
+  // ─ High ──────────────────────────────────────────────────────
+  { dirs: ['script-src','default-src'], pattern: /(?<![a-z0-9\-])\*/,
+    severity: 'high', icon: '🔴',
+    title: 'Wildcard (*) in script-src',
+    sub: 'Scripts can be loaded from any origin.' },
+  { dirs: ['default-src'], negativeCheck: true, // missing default-src
+    severity: 'high', icon: '🔴',
+    title: 'No default-src directive',
+    sub: 'Without default-src, many resource types have no fallback policy.' },
+  { dirs: ['style-src','default-src'], pattern: /'unsafe-inline'/,
+    severity: 'high', icon: '🔴',
+    title: "'unsafe-inline' in style-src",
+    sub: 'Allows arbitrary inline styles — CSS injection attacks possible.' },
+  { dirs: ['frame-ancestors'], negativeCheck: true,
+    severity: 'high', icon: '🔴',
+    title: 'Missing frame-ancestors',
+    sub: 'Without frame-ancestors, site may be embeddable — clickjacking risk.' },
+  { dirs: ['object-src'], negativeCheck: true,
+    severity: 'high', icon: '🔴',
+    title: 'Missing object-src',
+    sub: 'Plugins (Flash, Java applets) may load without restriction.' },
+
+  // ─ Medium ────────────────────────────────────────────────────
+  { dirs: ['script-src','default-src'], pattern: /\bdata:/,
+    severity: 'medium', icon: '🟡',
+    title: "data: URI in script-src",
+    sub: 'data: URIs in scripts can be abused for XSS in some browsers.' },
+  { dirs: ['base-uri'], negativeCheck: true,
+    severity: 'medium', icon: '🟡',
+    title: 'Missing base-uri',
+    sub: 'Attackers can inject <base> tags to redirect relative URLs.' },
+  { dirs: ['form-action'], negativeCheck: true,
+    severity: 'medium', icon: '🟡',
+    title: 'Missing form-action',
+    sub: 'Forms may submit to external domains if not restricted.' },
+  { dirs: ['img-src','default-src'], pattern: /(?<![a-z0-9\-])\*/,
+    severity: 'medium', icon: '🟡',
+    title: "Wildcard (*) in img-src",
+    sub: 'Images from any origin — potential for tracking pixels.' },
+
+  // ─ Good (positive) ───────────────────────────────────────────
+  { dirs: ['object-src'], pattern: /'none'/,
+    severity: 'good', icon: '✅',
+    title: "object-src 'none'",
+    sub: 'Plugins/Flash are fully blocked — excellent.' },
+  { dirs: ['base-uri'], pattern: /'none'|'self'/,
+    severity: 'good', icon: '✅',
+    title: 'base-uri restricted',
+    sub: 'Base tag injection prevented — good.' },
+  { dirs: ['frame-ancestors'], pattern: /'none'|'self'/,
+    severity: 'good', icon: '✅',
+    title: 'frame-ancestors restricted',
+    sub: 'Clickjacking protection in place.' },
+  { dirs: ['script-src','default-src'], pattern: /'nonce-[^']+'/,
+    severity: 'good', icon: '✅',
+    title: 'Nonce-based script policy',
+    sub: 'Using nonces for script allowlisting — modern best practice.' },
+  { dirs: ['script-src','default-src'], pattern: /'strict-dynamic'/,
+    severity: 'good', icon: '✅',
+    title: "'strict-dynamic' in script-src",
+    sub: 'Trusted scripts can propagate trust — very secure approach.' },
+];
+
+function parseCsp(header) {
+  if (!header) return {};
+  const directives = {};
+  header.split(';').forEach(part => {
+    const tokens = part.trim().split(/\s+/);
+    if (!tokens.length) return;
+    const key = tokens[0].toLowerCase();
+    if (key) directives[key] = tokens.slice(1).join(' ');
+  });
+  return directives;
+}
+
+function analyzeCsp(cspStr) {
+  const directives = parseCsp(cspStr);
+  const issues = [];
+  const seen   = new Set(); // avoid duplicate issues
+
+  for (const check of CSP_CHECKS) {
+    const key = check.title;
+    if (seen.has(key)) continue;
+
+    if (check.negativeCheck) {
+      // Flag if NONE of the listed directives are present
+      const anyPresent = check.dirs.some(d => d in directives);
+      if (!anyPresent) {
+        issues.push({ ...check });
+        seen.add(key);
+      }
+    } else if (check.pattern) {
+      // Flag if ANY listed directive matches the pattern
+      for (const dir of check.dirs) {
+        if (dir in directives && check.pattern.test(directives[dir])) {
+          issues.push({ ...check, matchedDir: dir });
+          seen.add(key);
+          break;
+        }
+      }
+    }
+  }
+
+  // Grade: A–F
+  const critCount = issues.filter(i => i.severity === 'critical').length;
+  const highCount = issues.filter(i => i.severity === 'high').length;
+  const goodCount = issues.filter(i => i.severity === 'good').length;
+  let grade;
+  if      (!cspStr)          grade = 'F';
+  else if (critCount >= 1)   grade = 'F';
+  else if (highCount >= 3)   grade = 'D';
+  else if (highCount >= 1)   grade = 'C';
+  else if (goodCount >= 3)   grade = 'A';
+  else                       grade = 'B';
+
+  return { directives, issues, grade };
+}
+
+function highlightDirectiveValue(val) {
+  return val
+    .replace(/'unsafe-inline'|'unsafe-eval'|'unsafe-hashes'/g, m =>
+      `<span class="unsafe">${m}</span>`)
+    .replace(/\b\*\b/g, m => `<span class="wildcard">${m}</span>`)
+    .replace(/'none'|'strict-dynamic'/g, m => `<span class="safe">${m}</span>`);
+}
+
+async function renderCspTab(tabId) {
+  const resp = await chrome.runtime.sendMessage({ type: 'GET_CSP', tabId });
+  const cspStr = resp?.csp ?? null;
+
+  const pill    = document.getElementById('cspGradePill');
+  const label   = document.getElementById('cspGradeLabel');
+  const statusEl = document.getElementById('cspHeaderStatus');
+  const issuesEl = document.getElementById('cspIssues');
+  const dirsEl   = document.getElementById('cspDirectives');
+  const missingEl = document.getElementById('cspMissing');
+
+  // null = not yet captured (page not reloaded since extension installed)
+  // ''   = captured, no CSP header
+  if (cspStr === null) {
+    pill.textContent = '?';
+    pill.className   = 'csp-grade-pill grade-D';
+    label.textContent = 'Reload page to capture CSP';
+    statusEl.textContent = '↺ Reload needed';
+    statusEl.className   = 'csp-header-status missing';
+    issuesEl.innerHTML = '';
+    dirsEl.innerHTML   = '';
+    missingEl.classList.add('hidden');
+    return;
+  }
+
+  if (!cspStr) {
+    pill.textContent  = 'F';
+    pill.className    = 'csp-grade-pill grade-F';
+    label.textContent = 'No CSP — Critical Risk';
+    statusEl.textContent = '✗ Header absent';
+    statusEl.className   = 'csp-header-status missing';
+    issuesEl.innerHTML   = '';
+    dirsEl.innerHTML     = '';
+    missingEl.classList.remove('hidden');
+    return;
+  }
+
+  missingEl.classList.add('hidden');
+  statusEl.textContent = '✓ CSP Present';
+  statusEl.className   = 'csp-header-status present';
+
+  const { directives, issues, grade } = analyzeCsp(cspStr);
+  const gradeLabels = { A:'Excellent',B:'Good',C:'Fair',D:'Weak',F:'Critical Risk' };
+
+  pill.textContent  = grade;
+  pill.className    = `csp-grade-pill grade-${grade}`;
+  label.textContent = `Grade ${grade} — ${gradeLabels[grade]}`;
+
+  // Issues
+  const realIssues = issues.filter(i => i.severity !== 'good');
+  const goodItems  = issues.filter(i => i.severity === 'good');
+  const sortOrder  = { critical: 0, high: 1, medium: 2, good: 3 };
+  realIssues.sort((a, b) => (sortOrder[a.severity] ?? 9) - (sortOrder[b.severity] ?? 9));
+
+  issuesEl.innerHTML = [...realIssues, ...goodItems].map((iss, i) => `
+    <div class="csp-issue" style="animation-delay:${i * 30}ms">
+      <span class="csp-issue-icon">${iss.icon}</span>
+      <div class="csp-issue-body">
+        <div class="csp-issue-title">${iss.title}</div>
+        <div class="csp-issue-sub">${iss.sub}</div>
+      </div>
+      <span class="csp-sev ${iss.severity}">${iss.severity}</span>
+    </div>`).join('');
+
+  // Directives breakdown
+  const presentDirs = CSP_DIRECTIVES_ORDER.filter(d => d in directives);
+  const otherDirs   = Object.keys(directives).filter(d => !CSP_DIRECTIVES_ORDER.includes(d));
+  const allDirs     = [...presentDirs, ...otherDirs];
+
+  dirsEl.innerHTML = allDirs.length
+    ? `<div class="csp-dir-label">Directives (${allDirs.length})</div>` +
+      allDirs.map(d => `
+        <div class="csp-dir-row">
+          <span class="csp-dir-key">${d}</span>
+          <span class="csp-dir-val">${highlightDirectiveValue(
+            esc(directives[d] || "'none'")
+          )}</span>
+        </div>`).join('')
+    : '';
+}
+
 // ── Score Trend ───────────────────────────────────────────────
 async function renderScoreTrend(hostname, currentScore) {
   const el = document.getElementById('scoreTrend');
@@ -364,6 +594,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.classList.add('active');
     showPane(btn.dataset.tab + 'Tab');
     if (btn.dataset.tab === 'cookies') renderCookies();
+    if (btn.dataset.tab === 'csp' && currentTabId) renderCspTab(currentTabId);
     if (btn.dataset.tab === 'history') {
       renderHistory();
       renderWhitelistSection();

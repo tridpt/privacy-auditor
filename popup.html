@@ -187,6 +187,7 @@
     <div class="tabs" role="tablist">
       <button class="tab-btn active" data-tab="trackers"    role="tab">Trackers</button>
       <button class="tab-btn"        data-tab="fingerprint" role="tab">Fingerprint</button>
+      <button class="tab-btn"        data-tab="csp"         role="tab">CSP</button>
       <button class="tab-btn"        data-tab="details"     role="tab">Details</button>
       <button class="tab-btn"        data-tab="cookies"     role="tab">Cookies</button>
       <button class="tab-btn"        data-tab="history"     role="tab">History</button>
@@ -210,6 +211,30 @@
       <div id="noTrackers" class="empty-state hidden">
         <span>✅</span>
         <p>No known trackers detected!</p>
+      </div>
+    </div>
+
+    <!-- Tab: CSP Analyzer -->
+    <div id="cspTab" class="tab-pane hidden" role="tabpanel">
+      <!-- Summary header -->
+      <div class="csp-summary" id="cspSummary">
+        <div class="csp-grade-wrap">
+          <div id="cspGradePill" class="csp-grade-pill">—</div>
+          <div id="cspGradeLabel" class="csp-grade-label">Analyzing…</div>
+        </div>
+        <div id="cspHeaderStatus" class="csp-header-status"></div>
+      </div>
+
+      <!-- Issues list -->
+      <div id="cspIssues" class="csp-issues"></div>
+
+      <!-- Directives breakdown -->
+      <div id="cspDirectives" class="csp-directives"></div>
+
+      <!-- No CSP state -->
+      <div id="cspMissing" class="empty-state hidden">
+        <span>⚠️</span>
+        <p>No CSP header found — this site has no content security policy.</p>
       </div>
     </div>
 

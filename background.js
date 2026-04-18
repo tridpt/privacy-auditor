@@ -450,6 +450,7 @@ function initTabData(tabId, url = '') {
     cookies:       { count: 0 },
     localStorage:  0,
     sessionStorage: 0,
+    csp:           null, // raw CSP header string or null
     url,
     timestamp:     Date.now(),
   });
@@ -979,7 +980,29 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ trackers: entries });
       return true;
     }
+
+    case 'GET_CSP': {
+      const d = tabData.get(message.tabId);
+      sendResponse({ csp: d?.csp ?? null });
+      return true;
+    }
   }
 
   return false;
 });
+
+// ── CSP Header Capture ────────────────────────────────────────
+// Capture Content-Security-Policy from main-frame responses
+chrome.webRequest.onHeadersReceived.addListener(
+  (details) => {
+    if (details.type !== 'main_frame' || details.tabId < 0) return;
+    const cspHeader = details.responseHeaders?.find(
+      h => h.name.toLowerCase() === 'content-security-policy'
+    );
+    if (tabData.has(details.tabId)) {
+      tabData.get(details.tabId).csp = cspHeader?.value ?? '';
+    }
+  },
+  { urls: ['<all_urls>'], types: ['main_frame'] },
+  ['responseHeaders']
+);
