@@ -2372,6 +2372,19 @@ chrome.storage.onChanged.addListener((changes, area) => {
 updateNcBadge();
 
 // ── Boot ──────────────────────────────────────────────────────
+
+// ── Tab row scroll indicator ──────────────────────────────────
+(function() {
+  const tabs = document.getElementById('tabsRow');
+  const wrap = tabs?.parentElement;
+  if (!tabs || !wrap) return;
+  function checkScroll() {
+    const atEnd = tabs.scrollLeft + tabs.clientWidth >= tabs.scrollWidth - 4;
+    wrap.classList.toggle('at-end', atEnd);
+  }
+  tabs.addEventListener('scroll', checkScroll, { passive: true });
+  checkScroll();
+})();
 loadData();
 
 // ── Network Waterfall ─────────────────────────────────────────

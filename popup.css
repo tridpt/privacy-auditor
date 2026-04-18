@@ -352,12 +352,33 @@ body {
 }
 
 /* ── Tabs ─────────────────────────────────────────────────── */
+.tabs-wrap {
+  position: relative;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+}
+/* Right-edge fade — signals more tabs hidden beyond scroll */
+.tabs-wrap::after {
+  content: '›';
+  position: absolute; top: 0; right: 0;
+  width: 36px; height: 100%;
+  background: linear-gradient(to right, transparent, var(--bg) 70%);
+  display: flex; align-items: center; justify-content: flex-end;
+  padding-right: 6px;
+  font-size: 14px; color: var(--txt3);
+  pointer-events: none;
+  transition: opacity .25s ease;
+  z-index: 2;
+}
+/* Hide fade once scrolled to end */
+.tabs-wrap.at-end::after { opacity: 0; }
+
 .tabs {
   display: flex; gap: 2px;
-  padding: 0 22px 0 14px;
-  border-bottom: 1px solid var(--border);
+  padding: 0 8px 0 14px;
   flex-shrink: 0;
   overflow-x: auto;
+  border-bottom: none; /* border is on .tabs-wrap now */
 }
 .tabs::-webkit-scrollbar { display: none; }
 
