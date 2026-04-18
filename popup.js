@@ -1627,6 +1627,317 @@ async function exportReport() {
 
 document.getElementById('exportReportBtn').addEventListener('click', exportReport);
 
+// ── Export HTML Report ─────────────────────────────────────────
+async function exportHtmlReport() {
+  if (!currentData || !currentHostname) return;
+
+  const btn = document.getElementById('exportHtmlBtn');
+  btn.classList.add('exporting');
+  btn.textContent = '⏳ Generating…';
+
+  try {
+    const d     = currentData;
+    const score = d.score ?? 0;
+    const grade = getGrade(score);
+    const date  = new Date().toLocaleString();
+    const { factors } = scoreBreakdownFactors(d);
+
+    // Fetch cookies for report
+    let cookies = [];
+    try { cookies = await chrome.cookies.getAll({ domain: currentHostname }); } catch (_) {}
+
+    const trackers = d.trackers ?? [];
+    const fps      = d.fingerprinting ?? [];
+    const riskOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+    const sortedTrackers = [...trackers].sort((a,b) => (riskOrder[a.risk]??9)-(riskOrder[b.risk]??9));
+
+    const riskColor = { critical:'#dc2626', high:'#ef4444', medium:'#f97316', low:'#22c55e' };
+    const riskBg    = { critical:'rgba(220,38,38,.12)', high:'rgba(239,68,68,.12)', medium:'rgba(249,115,22,.12)', low:'rgba(34,197,94,.1)' };
+
+    // Score arc helpers
+    const arcPct  = score / 100;
+    const arcMax  = 267.5;
+    const arcDash = (arcPct * arcMax).toFixed(1);
+    const arcColor = grade.color;
+
+    // Tracker rows HTML
+    const trackerRows = sortedTrackers.length
+      ? sortedTrackers.map(t => `
+          <tr>
+            <td>${escH(t.name)}</td>
+            <td>${escH(t.category)}</td>
+            <td>${escH(t.domain)}</td>
+            <td><span class="badge" style="background:${riskBg[t.risk]??'rgba(99,102,241,.1)'};color:${riskColor[t.risk]??'#a5b4fc'}">${escH(t.risk)}</span></td>
+            <td style="text-align:right">${t.requestCount ?? 0}</td>
+          </tr>`).join('')
+      : `<tr><td colspan="5" style="text-align:center;color:#64748b;padding:16px">✅ No trackers detected</td></tr>`;
+
+    // Fingerprint rows
+    const fpRows = fps.length
+      ? fps.map(f => {
+          const meta = { canvas_toDataURL:'Canvas Fingerprinting', canvas_toBlob:'Canvas (Blob)', canvas_getImageData:'Canvas Pixel Read', webgl_context:'WebGL Context', webgl_getParameter:'WebGL GPU', audio_oscillator:'Audio Oscillator', audio_analyser:'Audio Analyser', font_check:'Font Check', battery_api:'Battery API', navigator_fingerprint:'Navigator Props' };
+          return `<tr><td>${escH(meta[f] ?? f)}</td></tr>`;
+        }).join('')
+      : `<tr><td style="text-align:center;color:#64748b;padding:16px">✅ No fingerprinting detected</td></tr>`;
+
+    // Cookie summary
+    const cookieRiskyCount = cookies.filter(c => !c.secure || !c.httpOnly || !c.sameSite || c.sameSite === 'unspecified').length;
+
+    // Score factors table
+    const factorRows = factors.map(f =>
+      `<tr>
+        <td>${f.icon} ${escH(f.name)}</td>
+        <td>${escH(f.detail)}</td>
+        <td style="text-align:right;color:${f.penalty > 0 ? '#fca5a5' : '#86efac'};font-weight:700">
+          ${f.penalty > 0 ? `−${f.penalty}` : '✓'}
+        </td>
+      </tr>`).join('');
+
+    // CSP grade
+    const cspGrade = d.csp ? (typeof d.csp === 'object' ? (d.csp.grade ?? '?') : d.csp) : 'N/A';
+    const httpsStatus = d.isHttps
+      ? (d.mixedContent?.length ? `⚠️ Mixed Content (${d.mixedContent.length} insecure)` : '🔒 Secure HTTPS')
+      : '🔓 Not Secure (HTTP)';
+
+    function escH(s) {
+      return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Privacy Report — ${escH(currentHostname)}</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Inter,system-ui,sans-serif;background:#0a0f1e;color:#e2e8f0;min-height:100vh;padding:0}
+a{color:#818cf8}
+.page{max-width:820px;margin:0 auto;padding:32px 20px 60px}
+
+/* Header */
+.header{background:linear-gradient(135deg,#0d1424,#111827);border:1px solid rgba(99,102,241,.2);border-radius:16px;padding:32px;margin-bottom:24px;display:flex;align-items:center;gap:32px;flex-wrap:wrap}
+.gauge-wrap{flex-shrink:0}
+.gauge-svg{width:160px;height:105px}
+.header-info{flex:1;min-width:200px}
+.header-tool{font-size:11px;font-weight:700;color:#6366f1;letter-spacing:.8px;text-transform:uppercase;margin-bottom:6px}
+.header-hostname{font-size:24px;font-weight:800;color:#f1f5f9;margin-bottom:4px;word-break:break-all}
+.header-url{font-size:11px;color:#64748b;margin-bottom:12px;word-break:break-all}
+.header-meta{display:flex;flex-wrap:wrap;gap:8px}
+.meta-chip{font-size:10px;font-weight:600;padding:3px 10px;border-radius:999px;background:rgba(255,255,255,.06);color:#94a3b8}
+
+/* Grade badge */
+.grade-badge{display:inline-block;font-size:14px;font-weight:800;padding:6px 18px;border-radius:999px;margin-top:10px}
+
+/* Section */
+.section{background:#0d1424;border:1px solid rgba(255,255,255,.06);border-radius:12px;margin-bottom:16px;overflow:hidden}
+.section-head{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.02)}
+.section-icon{font-size:18px}
+.section-title{font-size:14px;font-weight:800;color:#f1f5f9}
+.section-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;margin-left:auto}
+.section-body{padding:16px 18px}
+
+/* Stats grid */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
+.stat-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:12px 14px}
+.stat-num{font-size:26px;font-weight:900;color:#6366f1;line-height:1}
+.stat-lbl{font-size:10px;color:#64748b;margin-top:4px;font-weight:600}
+
+/* Table */
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{padding:8px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#64748b;border-bottom:1px solid rgba(255,255,255,.07)}
+tbody td{padding:9px 10px;border-bottom:1px solid rgba(255,255,255,.04);color:#94a3b8;vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:rgba(255,255,255,.02)}
+.badge{font-size:9px;font-weight:800;padding:2px 8px;border-radius:4px;text-transform:uppercase;letter-spacing:.3px}
+
+/* Score factors */
+.factors-table tbody td:first-child{font-weight:700;color:#e2e8f0}
+.factors-table tbody td:last-child{min-width:60px}
+
+/* Security chips */
+.security-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.security-item:last-child{border-bottom:none}
+.sec-label{font-size:12px;font-weight:700;color:#e2e8f0;min-width:120px}
+.sec-value{font-size:12px;color:#94a3b8}
+
+/* Footer */
+.footer{text-align:center;margin-top:32px;font-size:11px;color:#334155}
+.footer strong{color:#475569}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="gauge-wrap">
+      <svg class="gauge-svg" viewBox="0 0 220 130" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <filter id="glow"><feGaussianBlur stdDeviation="3" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        </defs>
+        <path d="M 25 115 A 85 85 0 0 1 195 115" fill="none" stroke="#1e293b" stroke-width="13" stroke-linecap="round"/>
+        <path d="M 25 115 A 85 85 0 0 1 195 115" fill="none" stroke="${arcColor}" stroke-width="13"
+          stroke-linecap="round" stroke-dasharray="${arcDash} ${arcMax + 10}" filter="url(#glow)"/>
+        <text x="110" y="98" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="34" font-weight="800" fill="#f1f5f9">${score}</text>
+        <text x="110" y="116" text-anchor="middle" font-family="'Segoe UI',sans-serif" font-size="11" fill="#64748b">/ 100</text>
+      </svg>
+    </div>
+    <div class="header-info">
+      <div class="header-tool">🛡️ Privacy Auditor Report</div>
+      <div class="header-hostname">${escH(currentHostname)}</div>
+      <div class="header-url">${escH(d.url ?? '')}</div>
+      <div class="header-meta">
+        <span class="meta-chip">📅 ${escH(date)}</span>
+        <span class="meta-chip">🌐 ${escH(httpsStatus)}</span>
+        <span class="meta-chip">🔒 CSP: ${escH(cspGrade)}</span>
+      </div>
+      <div class="grade-badge" style="background:${arcColor}22;color:${arcColor}">${escH(grade.label)}</div>
+    </div>
+  </div>
+
+  <!-- Summary stats -->
+  <div class="section">
+    <div class="section-head">
+      <span class="section-icon">📊</span>
+      <div class="section-title">Summary</div>
+    </div>
+    <div class="section-body">
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-num" style="color:${trackers.length > 0 ? '#ef4444' : '#22c55e'}">${trackers.length}</div>
+          <div class="stat-lbl">Trackers</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" style="color:${fps.length > 0 ? '#a855f7' : '#22c55e'}">${fps.length}</div>
+          <div class="stat-lbl">Fingerprint APIs</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num">${cookies.length}</div>
+          <div class="stat-lbl">Cookies</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num">${d.requests?.external ?? 0}</div>
+          <div class="stat-lbl">Ext. Requests</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num">${d.requests?.total ?? 0}</div>
+          <div class="stat-lbl">Total Requests</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" style="color:${cookieRiskyCount > 0 ? '#f97316' : '#22c55e'}">${cookieRiskyCount}</div>
+          <div class="stat-lbl">Risky Cookies</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Score breakdown -->
+  <div class="section">
+    <div class="section-head">
+      <span class="section-icon">📉</span>
+      <div class="section-title">Score Breakdown</div>
+      <span class="section-badge" style="background:rgba(99,102,241,.15);color:#a5b4fc">Starts at 100</span>
+    </div>
+    <div class="section-body" style="padding:0">
+      <table class="factors-table">
+        <thead><tr><th>Factor</th><th>Detail</th><th style="text-align:right">Impact</th></tr></thead>
+        <tbody>${factorRows}</tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Trackers -->
+  <div class="section">
+    <div class="section-head">
+      <span class="section-icon">🔍</span>
+      <div class="section-title">Trackers Detected</div>
+      <span class="section-badge" style="background:${trackers.length > 0 ? 'rgba(239,68,68,.15)' : 'rgba(34,197,94,.1)'};color:${trackers.length > 0 ? '#fca5a5' : '#86efac'}">${trackers.length} found</span>
+    </div>
+    <div class="section-body" style="padding:0">
+      <table>
+        <thead><tr><th>Name</th><th>Category</th><th>Domain</th><th>Risk</th><th style="text-align:right">Reqs</th></tr></thead>
+        <tbody>${trackerRows}</tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Fingerprinting -->
+  <div class="section">
+    <div class="section-head">
+      <span class="section-icon">🖐️</span>
+      <div class="section-title">Browser Fingerprinting</div>
+      <span class="section-badge" style="background:${fps.length > 0 ? 'rgba(168,85,247,.15)' : 'rgba(34,197,94,.1)'};color:${fps.length > 0 ? '#d8b4fe' : '#86efac'}">${fps.length} API${fps.length !== 1 ? 's' : ''}</span>
+    </div>
+    <div class="section-body" style="padding:0">
+      <table>
+        <thead><tr><th>Technique</th></tr></thead>
+        <tbody>${fpRows}</tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Security -->
+  <div class="section">
+    <div class="section-head">
+      <span class="section-icon">🔒</span>
+      <div class="section-title">Security Checks</div>
+    </div>
+    <div class="section-body">
+      <div class="security-item">
+        <span class="sec-label">Connection</span>
+        <span class="sec-value">${escH(httpsStatus)}</span>
+      </div>
+      <div class="security-item">
+        <span class="sec-label">CSP Grade</span>
+        <span class="sec-value">${escH(cspGrade)}</span>
+      </div>
+      <div class="security-item">
+        <span class="sec-label">Mixed Content</span>
+        <span class="sec-value">${d.mixedContent?.length ? `⚠️ ${d.mixedContent.length} insecure resource(s)` : '✅ None detected'}</span>
+      </div>
+      <div class="security-item">
+        <span class="sec-label">Cookies (total)</span>
+        <span class="sec-value">${cookies.length} cookies · ${cookieRiskyCount} risky (missing Secure/HttpOnly/SameSite)</span>
+      </div>
+      <div class="security-item">
+        <span class="sec-label">Blocked Requests</span>
+        <span class="sec-value">🛡️ ${d.blockedRequests ?? 0} blocked this session</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    Generated by <strong>Privacy Auditor v1.0</strong> · ${escH(date)}<br>
+    This report reflects conditions at time of scan. Results may vary.
+  </div>
+
+</div>
+</body>
+</html>`;
+
+    const blob     = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url      = URL.createObjectURL(blob);
+    const dateStr  = new Date().toISOString().slice(0, 10);
+    const filename = `privacy-report-${currentHostname}-${dateStr}.html`;
+
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+  } finally {
+    btn.classList.remove('exporting');
+    btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg> HTML Report`;
+  }
+}
+
+document.getElementById('exportHtmlBtn').addEventListener('click', exportHtmlReport);
+
 // ── Auto-Rescan ───────────────────────────────────────────────
 let autoRescanTimer   = null;
 let autoRescanTick    = null;
