@@ -680,15 +680,15 @@ chrome.webRequest.onBeforeRequest.addListener(
     // ── Request log for waterfall ─────────────────────────────
     if (data.requestLog.length < 250) {
       const relMs = Date.now() - data.startTs;
-      const tracker = isExternal ? matchTracker(reqDomain) : null;
+      const trkr  = isExternal ? matchTracker(reqDomain) : null;
       data.requestLog.push({
         type:       details.type,
         domain:     reqDomain || pageDomain || '',
         url:        url.slice(0, 120),
         relMs,
         isExternal: !!isExternal,
-        isTracker:  !!tracker,
-        risk:       tracker ? tracker.risk : null,
+        isTracker:  !!trkr,
+        risk:       trkr ? trkr.risk : null,
       });
     }
 
