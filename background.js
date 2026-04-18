@@ -444,15 +444,16 @@ const tabData = new Map();
 
 function initTabData(tabId, url = '') {
   tabData.set(tabId, {
-    trackers:      new Map(),
-    requests:      { total: 0, external: 0 },
-    fingerprinting: new Set(),
-    cookies:       { count: 0 },
-    localStorage:  0,
-    sessionStorage: 0,
-    csp:           null, // raw CSP header string or null
+    trackers:        new Map(),
+    requests:        { total: 0, external: 0 },
+    fingerprinting:  new Set(),
+    cookies:         { count: 0 },
+    localStorage:    0,
+    sessionStorage:  0,
+    csp:             null,
+    blockedRequests: 0,   // requests blocked by declarativeNetRequest this tab
     url,
-    timestamp:     Date.now(),
+    timestamp:       Date.now(),
   });
 }
 
@@ -795,6 +796,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         // Include first-party note if applicable
         const fpInfo = getFirstPartyPenalty(d.url);
 
+        // Lifetime blocked count
+        const { lifetimeBlocked = 0 } = await chrome.storage.local.get('lifetimeBlocked');
+
         sendResponse({
           score,
           trackers:         [...d.trackers.values()],
@@ -805,7 +809,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           sessionStorage:   d.sessionStorage,
           timestamp:        d.timestamp,
           firstPartyNote:   fpInfo.note || null,
-          blocked:          [...blockedRules.keys()], // include currently blocked domains
+          blocked:          [...blockedRules.keys()],
+          blockedRequests:  d.blockedRequests,   // blocked this tab
+          lifetimeBlocked,                       // all-time total
         });
       })();
 
@@ -1006,3 +1012,35 @@ chrome.webRequest.onHeadersReceived.addListener(
   { urls: ['<all_urls>'], types: ['main_frame'] },
   ['responseHeaders']
 );
+
+// ── Blocked Request Counter ────────────────────────────────────
+// onRuleMatchedDebug fires for every request matched by declarativeNetRequest
+// Requires: declarativeNetRequestFeedback permission
+if (chrome.declarativeNetRequest?.onRuleMatchedDebug) {
+  chrome.declarativeNetRequest.onRuleMatchedDebug.addListener((info) => {
+    const tabId = info.request.tabId;
+
+    // Increment per-tab counter
+    if (tabId >= 0 && tabData.has(tabId)) {
+      tabData.get(tabId).blockedRequests++;
+    }
+
+    // Batch write to storage (avoid thrashing)
+    scheduleLifetimeWrite();
+  });
+}
+
+let lifetimePending    = 0;
+let lifetimeWriteTimer = null;
+
+function scheduleLifetimeWrite() {
+  lifetimePending++;
+  if (lifetimeWriteTimer) return;
+  lifetimeWriteTimer = setTimeout(async () => {
+    lifetimeWriteTimer = null;
+    const n = lifetimePending;
+    lifetimePending = 0;
+    const { lifetimeBlocked = 0 } = await chrome.storage.local.get('lifetimeBlocked');
+    await chrome.storage.local.set({ lifetimeBlocked: lifetimeBlocked + n });
+  }, 2000); // batch writes every 2 s
+}

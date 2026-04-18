@@ -569,16 +569,44 @@ function updateStats(data) {
   const fpCount      = data.fingerprinting?.length ?? 0;
   const cookieCount  = data.cookies?.count ?? 0;
   const extReqs      = data.requests?.external ?? 0;
+  const blocked      = data.blockedRequests ?? 0;
 
   document.getElementById('statTrackers').textContent = trackerCount;
   document.getElementById('statFP').textContent       = fpCount;
   document.getElementById('statCookies').textContent  = cookieCount;
   document.getElementById('statExtReq').textContent   = extReqs;
+  document.getElementById('statBlocked').textContent  = blocked;
 
   colorCard('cardTrackers', trackerCount, { dangerAt: 6, warnAt: 2, okAt: 0 });
   colorCard('cardFP',       fpCount,      { dangerAt: 1 });
   colorCard('cardCookies',  cookieCount,  { dangerAt: 25, warnAt: 10, okAt: 3 });
   colorCard('cardExtReq',   extReqs,      { dangerAt: 40, warnAt: 15 });
+
+  // Shield card pulses when actively blocking
+  const shieldCard = document.getElementById('cardBlocked');
+  shieldCard.classList.toggle('active', blocked > 0);
+
+  // Lifetime banner
+  const lifetime = data.lifetimeBlocked ?? 0;
+  if (lifetime > 0) {
+    const banner = document.getElementById('lifetimeBanner');
+    const count  = document.getElementById('lifetimeCount');
+    banner.classList.remove('hidden');
+    animateCount(count, lifetime);
+  }
+}
+
+function animateCount(el, target) {
+  const duration = 800;
+  const start    = performance.now();
+  const from     = parseInt(el.textContent.replace(/,/g,''), 10) || 0;
+  function tick(now) {
+    const t = Math.min((now - start) / duration, 1);
+    const v = Math.round(from + (target - from) * (1 - Math.pow(1-t, 3)));
+    el.textContent = v.toLocaleString();
+    if (t < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
 }
 
 // ── Show / hide panes ─────────────────────────────────────────

@@ -11,6 +11,7 @@
     "activeTab",
     "scripting",
     "declarativeNetRequest",
+    "declarativeNetRequestFeedback",
     "notifications"
   ],
   "host_permissions": ["<all_urls>", "https://generativelanguage.googleapis.com/*"],

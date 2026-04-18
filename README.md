@@ -25,12 +25,6 @@
 
 ---
 
-## 📸 Preview
-
-> Paste screenshot here
-
----
-
 ## 🚀 Installation (Developer Mode)
 
 1. Clone this repo:
