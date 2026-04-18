@@ -354,10 +354,12 @@ body {
 /* ── Tabs ─────────────────────────────────────────────────── */
 .tabs {
   display: flex; gap: 2px;
-  padding: 0 14px;
+  padding: 0 22px 0 14px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+  overflow-x: auto;
 }
+.tabs::-webkit-scrollbar { display: none; }
 
 .tab-btn {
   background: none; border: none;
