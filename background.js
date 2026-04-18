@@ -461,7 +461,8 @@ const TRACKERS = {
 };
 
 // ── In-memory tab data store ─────────────────────────────────
-const tabData = new Map();
+const tabData  = new Map();
+const cspCache = new Map(); // tabId → CSP string (persists across initTabData resets)
 
 function initTabData(tabId, url = '') {
   tabData.set(tabId, {
@@ -1051,8 +1052,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     case 'GET_CSP': {
-      const d = tabData.get(message.tabId);
-      sendResponse({ csp: d?.csp ?? null });
+      // Read from cspCache (not tabData) — avoids timing issue where
+      // initTabData(loading) resets tabData.csp AFTER onHeadersReceived sets it
+      const csp = cspCache.has(message.tabId)
+        ? cspCache.get(message.tabId)
+        : null;
+      sendResponse({ csp });
       return true;
     }
   }
@@ -1068,9 +1073,8 @@ chrome.webRequest.onHeadersReceived.addListener(
     const cspHeader = details.responseHeaders?.find(
       h => h.name.toLowerCase() === 'content-security-policy'
     );
-    if (tabData.has(details.tabId)) {
-      tabData.get(details.tabId).csp = cspHeader?.value ?? '';
-    }
+    // Store in cspCache — separate from tabData so initTabData resets don't clear it
+    cspCache.set(details.tabId, cspHeader?.value ?? '');
   },
   { urls: ['<all_urls>'], types: ['main_frame'] },
   ['responseHeaders']
