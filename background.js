@@ -1063,3 +1063,171 @@ function scheduleLifetimeWrite() {
     await chrome.storage.local.set({ lifetimeBlocked: lifetimeBlocked + n });
   }, 2000); // batch writes every 2 s
 }
+
+// ── Context Menu ──────────────────────────────────────────────
+function createContextMenus() {
+  chrome.contextMenus.removeAll(() => {
+    // Root item
+    chrome.contextMenus.create({
+      id: 'pa-root',
+      title: '🔏 Privacy Auditor',
+      contexts: ['page', 'link', 'selection'],
+    });
+
+    // ── Page actions ────────────────────────────────
+    chrome.contextMenus.create({
+      id: 'pa-score',
+      parentId: 'pa-root',
+      title: '🔍 Show Privacy Score for This Page',
+      contexts: ['page'],
+    });
+    chrome.contextMenus.create({
+      id: 'pa-rescan',
+      parentId: 'pa-root',
+      title: '🔄 Rescan This Page',
+      contexts: ['page'],
+    });
+    chrome.contextMenus.create({
+      id: 'pa-dashboard',
+      parentId: 'pa-root',
+      title: '📊 Open Privacy Dashboard',
+      contexts: ['page', 'link', 'selection'],
+    });
+
+    // ── Separator ───────────────────────────────────
+    chrome.contextMenus.create({
+      id: 'pa-sep',
+      parentId: 'pa-root',
+      type: 'separator',
+      contexts: ['link', 'selection'],
+    });
+
+    // ── Link actions ────────────────────────────────
+    chrome.contextMenus.create({
+      id: 'pa-block',
+      parentId: 'pa-root',
+      title: '🚫 Block This Domain',
+      contexts: ['link'],
+    });
+    chrome.contextMenus.create({
+      id: 'pa-unblock',
+      parentId: 'pa-root',
+      title: '✅ Unblock This Domain',
+      contexts: ['link'],
+    });
+    chrome.contextMenus.create({
+      id: 'pa-lookup-link',
+      parentId: 'pa-root',
+      title: '🗄️ Look Up in Tracker DB',
+      contexts: ['link'],
+    });
+
+    // ── Selection action ────────────────────────────
+    chrome.contextMenus.create({
+      id: 'pa-lookup-sel',
+      parentId: 'pa-root',
+      title: '🗄️ Search Tracker DB: "%s"',
+      contexts: ['selection'],
+    });
+  });
+}
+
+chrome.runtime.onInstalled.addListener(createContextMenus);
+chrome.runtime.onStartup.addListener(createContextMenus);
+
+// ── Context Menu click handler ────────────────────────────────
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  switch (info.menuItemId) {
+
+    case 'pa-score': {
+      if (!tab?.id) break;
+      const d = tabData.get(tab.id);
+      if (!d || d.trackers.size === 0) {
+        chrome.notifications.create('pa-score-' + tab.id, {
+          type: 'basic', iconUrl: 'icons/icon48.png',
+          title: 'Privacy Auditor',
+          message: 'No scan data yet — reload the page first.',
+        });
+        break;
+      }
+      const score  = calculateScore(d);
+      const grade  = score >= 80 ? '✅ Good'
+                   : score >= 60 ? '🟡 Fair'
+                   : score >= 40 ? '🟠 Poor'
+                   : score >= 20 ? '🔴 Bad'
+                   : '🚨 Critical';
+      const domain = getDomain(tab.url) || tab.url;
+      const mc     = d.mixedContent?.length ? ` · ⚠️ ${d.mixedContent.length} mixed` : '';
+      chrome.notifications.create('pa-score-' + tab.id, {
+        type: 'basic', iconUrl: 'icons/icon48.png',
+        title: `${grade}  ${score}/100 — ${domain}`,
+        message: `🔍 ${d.trackers.size} trackers · 🖐 ${d.fingerprinting.size} fingerprint APIs · 🍪 ${d.cookies.count} cookies${mc}`,
+      });
+      break;
+    }
+
+    case 'pa-rescan': {
+      if (tab?.id) chrome.tabs.reload(tab.id);
+      break;
+    }
+
+    case 'pa-dashboard': {
+      // Clear any pending deep-link so options opens normally
+      await chrome.storage.local.remove('contextMenuAction');
+      chrome.runtime.openOptionsPage();
+      break;
+    }
+
+    case 'pa-block': {
+      if (!info.linkUrl) break;
+      try {
+        const domain = new URL(info.linkUrl).hostname.replace(/^www\./, '');
+        if (!domain) break;
+        await blockDomain(domain);
+        chrome.notifications.create('pa-block-' + Date.now(), {
+          type: 'basic', iconUrl: 'icons/icon48.png',
+          title: 'Domain Blocked 🚫',
+          message: `${domain} is now blocked on all sites.`,
+        });
+      } catch (_) {}
+      break;
+    }
+
+    case 'pa-unblock': {
+      if (!info.linkUrl) break;
+      try {
+        const domain = new URL(info.linkUrl).hostname.replace(/^www\./, '');
+        if (!domain) break;
+        await unblockDomain(domain);
+        chrome.notifications.create('pa-unblock-' + Date.now(), {
+          type: 'basic', iconUrl: 'icons/icon48.png',
+          title: 'Domain Unblocked ✅',
+          message: `${domain} has been removed from your block list.`,
+        });
+      } catch (_) {}
+      break;
+    }
+
+    case 'pa-lookup-link': {
+      if (!info.linkUrl) break;
+      try {
+        const domain = new URL(info.linkUrl).hostname.replace(/^www\./, '');
+        await chrome.storage.local.set({
+          contextMenuAction: { type: 'tracker-db-search', query: domain },
+        });
+        chrome.runtime.openOptionsPage();
+      } catch (_) {}
+      break;
+    }
+
+    case 'pa-lookup-sel': {
+      const query = info.selectionText?.trim();
+      if (!query) break;
+      await chrome.storage.local.set({
+        contextMenuAction: { type: 'tracker-db-search', query },
+      });
+      chrome.runtime.openOptionsPage();
+      break;
+    }
+  }
+});

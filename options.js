@@ -540,6 +540,32 @@ document.querySelectorAll('.db-filter-btn').forEach(btn => {
   // Load theme
   const { theme = 'dark' } = await chrome.storage.local.get('theme');
   applyOptionsTheme(theme);
+
+  // ── Context Menu deep-link ──────────────────────────────────
+  // If opened from a context menu action, jump to the right section
+  const { contextMenuAction } = await chrome.storage.local.get('contextMenuAction');
+  if (contextMenuAction) {
+    await chrome.storage.local.remove('contextMenuAction');
+
+    if (contextMenuAction.type === 'tracker-db-search') {
+      // Navigate to Tracker DB section
+      const dbLink = document.querySelector('.nav-item[data-sec="tracker-db"]');
+      if (dbLink) {
+        document.querySelectorAll('.nav-item').forEach(l => l.classList.remove('active'));
+        dbLink.classList.add('active');
+        document.getElementById('tracker-db')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      // Pre-fill search and trigger render
+      const searchInput = document.getElementById('dbSearch');
+      if (searchInput && contextMenuAction.query) {
+        searchInput.value = contextMenuAction.query;
+        searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+        // Highlight the input briefly
+        searchInput.classList.add('highlight-pulse');
+        setTimeout(() => searchInput.classList.remove('highlight-pulse'), 1500);
+      }
+    }
+  }
 })();
 
 // ── Theme (Options page) ──────────────────────────────────────

@@ -12,7 +12,8 @@
     "scripting",
     "declarativeNetRequest",
     "declarativeNetRequestFeedback",
-    "notifications"
+    "notifications",
+    "contextMenus"
   ],
   "host_permissions": ["<all_urls>", "https://generativelanguage.googleapis.com/*"],
   "icons": {

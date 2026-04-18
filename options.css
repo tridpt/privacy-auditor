@@ -563,3 +563,13 @@ input:checked + .toggle-slider::before { left: calc(100% - 19px); background: va
 .ws-site-trackers {
   font-size: 10px; color: var(--txt3); flex-shrink: 0; width: 60px;
 }
+
+/* ── Context Menu deep-link highlight ─────────────────────── */
+@keyframes highlightPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(99,102,241,.5); border-color: #6366f1; }
+  50%  { box-shadow: 0 0 0 6px rgba(99,102,241,.15); }
+  100% { box-shadow: 0 0 0 0 rgba(99,102,241,0); border-color: var(--border2); }
+}
+.highlight-pulse {
+  animation: highlightPulse 1.5s ease forwards;
+}
