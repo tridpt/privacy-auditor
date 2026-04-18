@@ -596,6 +596,209 @@ async function renderScoreTrend(hostname, currentScore) {
   el.classList.remove('hidden');
 }
 
+// ── Mini Sparkline ────────────────────────────────────────────
+async function renderMiniSparkline(hostname, currentScore) {
+  const wrap = document.getElementById('sparklineWrap');
+  const canvas = document.getElementById('miniSparkline');
+  const daysEl = document.getElementById('sparklineDays');
+  if (!wrap || !canvas || !hostname) return;
+
+  const { siteHistory = [] } = await chrome.storage.local.get('siteHistory');
+
+  // Filter entries for this hostname from last 7 days
+  const now    = Date.now();
+  const day    = 86400000;
+  const cutoff = now - 7 * day;
+  const entries = siteHistory
+    .filter(e => e.hostname === hostname && e.timestamp >= cutoff)
+    .sort((a, b) => a.timestamp - b.timestamp);
+
+  // Build 7 day-buckets: index 6 = today, 5 = yesterday, …
+  // Take latest entry per day bucket
+  const buckets = Array(7).fill(null);
+  for (const e of entries) {
+    const daysAgo = Math.floor((now - e.timestamp) / day);
+    const idx = 6 - Math.min(daysAgo, 6);
+    buckets[idx] = e.score;
+  }
+  // Always put current score at today slot
+  buckets[6] = currentScore;
+
+  const valid = buckets.filter(v => v !== null);
+  if (valid.length < 2) {
+    wrap.classList.add('hidden');
+    return;
+  }
+  wrap.classList.remove('hidden');
+
+  // ── Draw sparkline ──────────────────────────────────────────
+  const dpr    = window.devicePixelRatio || 1;
+  const W      = 240, H = 44;
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+
+  // Only points with values
+  const pts = [];
+  const step = W / 6;    // 7 slots → 6 gaps
+  const pad  = { t: 8, b: 8 };
+  const ch   = H - pad.t - pad.b;
+
+  buckets.forEach((v, i) => {
+    if (v === null) return;
+    pts.push({
+      x: step * i + step / 2,
+      y: pad.t + ch - (v / 100) * ch,
+      v,
+      i,
+    });
+  });
+
+  if (pts.length < 2) { wrap.classList.add('hidden'); return; }
+
+  // Score → color
+  function sColor(s) {
+    if (s >= 80) return '#22c55e';
+    if (s >= 60) return '#eab308';
+    if (s >= 40) return '#f97316';
+    return '#ef4444';
+  }
+
+  // ── Gradient fill under line ────────────────────────────────
+  {
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+    for (let k = 1; k < pts.length; k++) {
+      const mx = (pts[k-1].x + pts[k].x) / 2;
+      ctx.bezierCurveTo(mx, pts[k-1].y, mx, pts[k].y, pts[k].x, pts[k].y);
+    }
+    ctx.lineTo(pts.at(-1).x, pad.t + ch);
+    ctx.lineTo(pts[0].x, pad.t + ch);
+    ctx.closePath();
+    const grad = ctx.createLinearGradient(0, pad.t, 0, H);
+    grad.addColorStop(0,   'rgba(99,102,241,.25)');
+    grad.addColorStop(1,   'rgba(99,102,241,.0)');
+    ctx.fillStyle = grad;
+    ctx.fill();
+  }
+
+  // ── Colored line segments ───────────────────────────────────
+  for (let k = 0; k < pts.length - 1; k++) {
+    const a = pts[k], b = pts[k+1];
+    const mx = (a.x + b.x) / 2;
+    const grad = ctx.createLinearGradient(a.x, 0, b.x, 0);
+    grad.addColorStop(0, sColor(a.v));
+    grad.addColorStop(1, sColor(b.v));
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.bezierCurveTo(mx, a.y, mx, b.y, b.x, b.y);
+    ctx.strokeStyle = grad;
+    ctx.lineWidth   = 1.8;
+    ctx.stroke();
+  }
+
+  // ── Score label on each dot (except today which gets glowing dot) ─
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 7px Inter,sans-serif';
+
+  pts.forEach((p, idx) => {
+    const isToday = p.i === 6;
+    if (!isToday) {
+      // Small dot
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+      ctx.fillStyle = sColor(p.v);
+      ctx.fill();
+
+      // Score label above dot
+      ctx.fillStyle = 'rgba(148,163,184,.7)';
+      ctx.fillText(p.v, p.x, p.y - 4);
+    }
+  });
+
+  // ── Glowing dot for "Today" (last point) ───────────────────
+  {
+    const last = pts.at(-1);
+    const col  = sColor(last.v);
+
+    // Glow ring
+    const radGrad = ctx.createRadialGradient(last.x, last.y, 1, last.x, last.y, 9);
+    radGrad.addColorStop(0,   col + 'aa');
+    radGrad.addColorStop(1,   col + '00');
+    ctx.beginPath();
+    ctx.arc(last.x, last.y, 9, 0, Math.PI * 2);
+    ctx.fillStyle = radGrad;
+    ctx.fill();
+
+    // Solid dot
+    ctx.beginPath();
+    ctx.arc(last.x, last.y, 3.5, 0, Math.PI * 2);
+    ctx.fillStyle = col;
+    ctx.fill();
+    ctx.strokeStyle = '#0d1424';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Score label above
+    ctx.font = 'bold 8px Inter,sans-serif';
+    ctx.fillStyle = col;
+    ctx.fillText(last.v, last.x, last.y - 6);
+  }
+
+  // ── Day labels below ────────────────────────────────────────
+  const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  daysEl.innerHTML = '';
+  buckets.forEach((v, i) => {
+    const lbl = document.createElement('div');
+    lbl.className = 'sparkline-day-lbl';
+    if (v !== null) {
+      const dAgo   = 6 - i;
+      const d      = new Date(now - dAgo * day);
+      lbl.textContent = dAgo === 0 ? 'Now' : days[d.getDay()];
+      if (dAgo === 0) lbl.style.color = '#6366f1';
+    }
+    daysEl.appendChild(lbl);
+  });
+
+  // ── Hover tooltip ───────────────────────────────────────────
+  let tooltip = document.querySelector('.sparkline-tooltip');
+  if (!tooltip) {
+    tooltip = document.createElement('div');
+    tooltip.className = 'sparkline-tooltip';
+    document.body.appendChild(tooltip);
+  }
+  tooltip.style.display = 'none';
+
+  canvas.onmousemove = (e) => {
+    const rect  = canvas.getBoundingClientRect();
+    const mx    = e.clientX - rect.left;
+    // Find nearest point
+    let nearest = null, minDist = Infinity;
+    pts.forEach(p => {
+      const d = Math.abs(p.x - mx);
+      if (d < minDist) { minDist = d; nearest = p; }
+    });
+    if (!nearest || minDist > step) { tooltip.style.display = 'none'; return; }
+
+    const dAgo  = 6 - nearest.i;
+    const dObj  = new Date(now - dAgo * day);
+    const label = dAgo === 0 ? 'Today' : dObj.toLocaleDateString('en', { weekday:'short', month:'short', day:'numeric' });
+    tooltip.textContent = `${label}  ${nearest.v}/100`;
+    tooltip.style.display = 'block';
+    tooltip.style.left = (e.clientX - rect.left + rect.x + 8) + 'px';
+    tooltip.style.top  = (e.clientY + 8) + 'px';
+    tooltip.style.position = 'fixed';
+    tooltip.style.color = sColor(nearest.v);
+    tooltip.style.borderColor = sColor(nearest.v) + '55';
+  };
+  canvas.onmouseleave = () => { tooltip.style.display = 'none'; };
+}
+
 // ── Gauge animation ───────────────────────────────────────────
 function animateGauge(targetScore) {
   const arc   = document.getElementById('scoreArc');
@@ -1376,6 +1579,8 @@ async function loadData() {
 
     // Trend arrow — compare with previous visit
     renderScoreTrend(hostname, data.score);
+    // Mini 7-day sparkline
+    renderMiniSparkline(hostname, data.score);
 
     // First-party data collector warning
     const banner = document.getElementById('firstPartyBanner');
