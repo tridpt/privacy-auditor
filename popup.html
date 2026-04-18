@@ -442,11 +442,34 @@
 
   </div><!-- /main-content -->
 
+  <!-- Notification Center Panel -->
+  <div id="ncPanel" class="nc-panel hidden" role="dialog" aria-label="Notification Center">
+    <div class="nc-header">
+      <div class="nc-title">🔔 Notifications</div>
+      <div class="nc-actions">
+        <button id="ncMarkAll" class="nc-action-btn" title="Mark all as read">✓ Read all</button>
+        <button id="ncClearAll" class="nc-action-btn nc-clear-btn" title="Clear all">🗑️ Clear</button>
+        <button id="ncClose" class="nc-close" aria-label="Close">✕</button>
+      </div>
+    </div>
+    <div id="ncList" class="nc-list"></div>
+    <div id="ncEmpty" class="nc-empty hidden">
+      <span>🔕</span>
+      <p>No notifications yet</p>
+    </div>
+  </div>
+  <!-- NC overlay backdrop -->
+  <div id="ncOverlay" class="nc-overlay hidden"></div>
+
   <!-- Footer -->
   <footer class="footer">
     <span>Privacy Auditor v1.0</span>
     <span id="footerTime" class="footer-time"></span>
     <div style="display:flex;gap:4px;align-items:center">
+      <button id="ncBellBtn" class="footer-settings-btn nc-bell-btn" title="Notification Center">
+        🔔
+        <span id="ncBadge" class="nc-badge hidden">0</span>
+      </button>
       <button id="themeToggleBtn" class="footer-settings-btn" title="Toggle Light/Dark Theme">🌙</button>
       <button id="openSettingsBtn" class="footer-settings-btn" title="Open Settings">⚙️</button>
     </div>

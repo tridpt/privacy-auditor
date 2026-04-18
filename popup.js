@@ -2265,5 +2265,108 @@ themeBtn.addEventListener('click', async () => {
   await chrome.storage.local.set({ theme: next });
 });
 
+// ── Notification Center ───────────────────────────────────────
+const NC_TYPE_ICON  = { alert:'⚠️', score:'📊', block:'🚫', unblock:'✅', info:'ℹ️' };
+const NC_TYPE_LABEL = { alert:'Alert', score:'Score', block:'Blocked', unblock:'Unblocked', info:'Info' };
+
+function ncRelTime(ts) {
+  const diff = Date.now() - ts;
+  if (diff < 60000)    return 'Just now';
+  if (diff < 3600000)  return `${Math.floor(diff / 60000)}m ago`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+  return new Date(ts).toLocaleDateString('en', { month:'short', day:'numeric' });
+}
+
+async function renderNotifCenter() {
+  const { notifLog = [] } = await chrome.storage.local.get('notifLog');
+  const list  = document.getElementById('ncList');
+  const empty = document.getElementById('ncEmpty');
+
+  if (!notifLog.length) {
+    list.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+
+  list.innerHTML = notifLog.map((n, i) => {
+    const icon  = NC_TYPE_ICON[n.type]  ?? '🔔';
+    const label = NC_TYPE_LABEL[n.type] ?? n.type;
+    return `
+      <div class="nc-item ${n.read ? '' : 'unread'} type-${esc(n.type)}"
+           data-id="${n.id}" style="animation-delay:${i*20}ms">
+        <div class="nc-unread-dot"></div>
+        <div class="nc-item-body">
+          <div class="nc-item-title">${icon} ${esc(n.title)}</div>
+          <div class="nc-item-msg">${esc(n.message)}</div>
+          <div class="nc-item-meta">
+            <span class="nc-type-chip nc-type-${esc(n.type)}">${esc(label)}</span>
+            <span>${ncRelTime(n.ts)}</span>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function updateNcBadge() {
+  const { notifLog = [] } = await chrome.storage.local.get('notifLog');
+  const unread = notifLog.filter(n => !n.read).length;
+  const badge  = document.getElementById('ncBadge');
+  badge.textContent = unread > 9 ? '9+' : unread;
+  badge.classList.toggle('hidden', unread === 0);
+}
+
+function openNcPanel() {
+  renderNotifCenter();
+  document.getElementById('ncPanel').classList.remove('hidden');
+}
+function closeNcPanel() {
+  document.getElementById('ncPanel').classList.add('hidden');
+  updateNcBadge(); // re-check badge in case items were marked
+}
+
+document.getElementById('ncBellBtn').addEventListener('click', openNcPanel);
+document.getElementById('ncClose').addEventListener('click',   closeNcPanel);
+
+// Mark all as read
+document.getElementById('ncMarkAll').addEventListener('click', async () => {
+  const { notifLog = [] } = await chrome.storage.local.get('notifLog');
+  notifLog.forEach(n => { n.read = true; });
+  await chrome.storage.local.set({ notifLog });
+  renderNotifCenter();
+  updateNcBadge();
+});
+
+// Clear all
+document.getElementById('ncClearAll').addEventListener('click', async () => {
+  await chrome.storage.local.set({ notifLog: [] });
+  renderNotifCenter();
+  updateNcBadge();
+});
+
+// Click item → mark as read
+document.getElementById('ncList').addEventListener('click', async (e) => {
+  const item = e.target.closest('.nc-item');
+  if (!item || !item.dataset.id) return;
+  const id = Number(item.dataset.id);
+  const { notifLog = [] } = await chrome.storage.local.get('notifLog');
+  const entry = notifLog.find(n => n.id === id);
+  if (entry && !entry.read) {
+    entry.read = true;
+    await chrome.storage.local.set({ notifLog });
+    item.classList.remove('unread');
+    item.querySelector('.nc-unread-dot').style.opacity = '0';
+    updateNcBadge();
+  }
+});
+
+// Auto-update badge when background logs a new notification
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes.notifLog) updateNcBadge();
+});
+
+// Init badge on open
+updateNcBadge();
+
 // ── Boot ──────────────────────────────────────────────────────
 loadData();

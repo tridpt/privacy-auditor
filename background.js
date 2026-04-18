@@ -221,6 +221,31 @@ const notifiedTabs    = new Set();
 const pendingTimers   = new Map(); // tabId → setTimeout handle
 
 const NOTIFY_DELAY_MS  = 3500; // wait for network requests to settle
+const NOTIF_LOG_MAX    = 50;   // max stored notifications
+
+/**
+ * Persist a notification to storage so the Notification Center can display it.
+ * type: 'alert' | 'block' | 'unblock' | 'score' | 'info'
+ */
+async function logNotification({ type = 'alert', title, message, url = '' }) {
+  const { notifLog = [] } = await chrome.storage.local.get('notifLog');
+  notifLog.unshift({ id: Date.now(), type, title, message, url, read: false, ts: Date.now() });
+  if (notifLog.length > NOTIF_LOG_MAX) notifLog.length = NOTIF_LOG_MAX;
+  await chrome.storage.local.set({ notifLog });
+}
+
+/** Create a Chrome notification AND log it for the Notification Center */
+function createNotif(id, opts, logOpts = {}) {
+  chrome.notifications.create(id, opts, () => {
+    if (chrome.runtime.lastError) return;
+  });
+  logNotification({
+    type:    logOpts.type ?? 'alert',
+    title:   opts.title,
+    message: opts.message,
+    url:     logOpts.url ?? '',
+  });
+}
 
 function maybeNotify(tabId) {
   if (!notifEnabled) return;           // notifications toggled off in settings
@@ -239,17 +264,13 @@ function maybeNotify(tabId) {
   const trackerCount = d.trackers.size;
   const grade        = score < 20 ? 'Very Invasive' : 'Bad Privacy';
 
-  chrome.notifications.create(`pa-${tabId}-${Date.now()}`, {
+  createNotif(`pa-${tabId}-${Date.now()}`, {
     type:     'basic',
     iconUrl:  'icons/icon48.png',
     title:    `⚠️ Privacy Alert — ${grade} (${score}/100)`,
     message:  `${hostname ?? 'This page'} is running ${trackerCount} tracker${trackerCount !== 1 ? 's' : ''}. Your data is being collected.`,
     priority: 1,
-  }, (id) => {
-    if (chrome.runtime.lastError) {
-      console.error('[PA] Notification error:', chrome.runtime.lastError.message);
-    }
-  });
+  }, { type: 'alert', url: d.url ?? '' });
 }
 
 // Schedule a delayed notification (resets timer each call, fires once)
@@ -1143,11 +1164,11 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       if (!tab?.id) break;
       const d = tabData.get(tab.id);
       if (!d || d.trackers.size === 0) {
-        chrome.notifications.create('pa-score-' + tab.id, {
+        createNotif('pa-score-' + tab.id, {
           type: 'basic', iconUrl: 'icons/icon48.png',
           title: 'Privacy Auditor',
           message: 'No scan data yet — reload the page first.',
-        });
+        }, { type: 'info', url: tab.url ?? '' });
         break;
       }
       const score  = calculateScore(d);
@@ -1158,11 +1179,11 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
                    : '🚨 Critical';
       const domain = getDomain(tab.url) || tab.url;
       const mc     = d.mixedContent?.length ? ` · ⚠️ ${d.mixedContent.length} mixed` : '';
-      chrome.notifications.create('pa-score-' + tab.id, {
+      createNotif('pa-score-' + tab.id, {
         type: 'basic', iconUrl: 'icons/icon48.png',
         title: `${grade}  ${score}/100 — ${domain}`,
         message: `🔍 ${d.trackers.size} trackers · 🖐 ${d.fingerprinting.size} fingerprint APIs · 🍪 ${d.cookies.count} cookies${mc}`,
-      });
+      }, { type: 'score', url: tab.url ?? '' });
       break;
     }
 
@@ -1184,11 +1205,11 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         const domain = new URL(info.linkUrl).hostname.replace(/^www\./, '');
         if (!domain) break;
         await blockDomain(domain);
-        chrome.notifications.create('pa-block-' + Date.now(), {
+        createNotif('pa-block-' + Date.now(), {
           type: 'basic', iconUrl: 'icons/icon48.png',
           title: 'Domain Blocked 🚫',
           message: `${domain} is now blocked on all sites.`,
-        });
+        }, { type: 'block', url: info.linkUrl });
       } catch (_) {}
       break;
     }
@@ -1199,11 +1220,11 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         const domain = new URL(info.linkUrl).hostname.replace(/^www\./, '');
         if (!domain) break;
         await unblockDomain(domain);
-        chrome.notifications.create('pa-unblock-' + Date.now(), {
+        createNotif('pa-unblock-' + Date.now(), {
           type: 'basic', iconUrl: 'icons/icon48.png',
           title: 'Domain Unblocked ✅',
           message: `${domain} has been removed from your block list.`,
-        });
+        }, { type: 'unblock', url: info.linkUrl });
       } catch (_) {}
       break;
     }
