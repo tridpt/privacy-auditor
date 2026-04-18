@@ -94,6 +94,7 @@ body {
   display: flex;
   flex-direction: column;
   min-height: 520px;
+  position: relative;  /* anchor for absolute children (score breakdown, etc.) */
 }
 
 /* ── Header ───────────────────────────────────────────────── */
@@ -1590,9 +1591,9 @@ body {
   to   { transform: translateX(0);    opacity: 1; }
 }
 
-/* Panel — slides in from right over the popup */
+/* Panel — covers the full popup viewport */
 .nc-panel {
-  position: absolute; inset: 0; z-index: 300;
+  position: fixed; inset: 0; z-index: 300;
   background: #0a0f1e;
   display: flex; flex-direction: column;
   animation: ncSlideIn .22s cubic-bezier(.34,1.1,.64,1) both;
