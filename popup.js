@@ -1318,7 +1318,8 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     showPane(btn.dataset.tab + 'Tab');
     if (btn.dataset.tab === 'cookies') renderCookies();
     if (btn.dataset.tab === 'csp'  && currentTabId) renderCspTab(currentTabId);
-    if (btn.dataset.tab === 'perms' && currentTabId) renderPermsTab(currentTabId);
+    if (btn.dataset.tab === 'perms'   && currentTabId) renderPermsTab(currentTabId);
+    if (btn.dataset.tab === 'details' && currentTabId) renderReferrerPolicy(currentTabId);
     if (btn.dataset.tab === 'network') {
       document.dispatchEvent(new CustomEvent('tabSwitch', { detail: 'network' }));
     }
@@ -1605,6 +1606,7 @@ async function loadData() {
     renderTrackers(data.trackers, blockedSet);
     renderFingerprinting(data.fingerprinting);
     renderDetails(data);
+    if (currentTabId) renderReferrerPolicy(currentTabId);
 
     if (data.timestamp) {
       document.getElementById('footerTime').textContent =
@@ -2494,3 +2496,107 @@ document.addEventListener('tabSwitch', (e) => {
     renderNetworkWaterfall(currentTabId);
   }
 });
+
+// ── Referrer Policy Checker ───────────────────────────────────
+const RP_DB = {
+  'no-referrer': {
+    grade: 'A', risk: 'safe', riskLabel: '✅ Best',
+    desc: 'No referrer information is ever sent. Maximum privacy — third parties cannot see which page linked to them.',
+    tip: null,
+  },
+  'strict-origin': {
+    grade: 'A', risk: 'safe', riskLabel: '✅ Strict',
+    desc: 'Only the origin (scheme + host) is sent to any destination. Path and query string are never leaked.',
+    tip: null,
+  },
+  'strict-origin-when-cross-origin': {
+    grade: 'A', risk: 'safe', riskLabel: '✅ Strict',
+    desc: 'Full URL sent for same-origin requests; only origin sent cross-origin. The recommended modern default.',
+    tip: null,
+  },
+  'same-origin': {
+    grade: 'A', risk: 'safe', riskLabel: '✅ Good',
+    desc: 'Full URL sent to same-origin only. No referrer is sent to cross-origin destinations.',
+    tip: null,
+  },
+  'origin': {
+    grade: 'B', risk: 'medium', riskLabel: '⚠️ Moderate',
+    desc: 'Only the origin is sent to all destinations — including cross-origin. Path and query are hidden, but origin is always visible.',
+    tip: 'Consider upgrading to strict-origin-when-cross-origin for better privacy.',
+  },
+  'origin-when-cross-origin': {
+    grade: 'B', risk: 'medium', riskLabel: '⚠️ Moderate',
+    desc: 'Full URL to same-origin; only origin to cross-origin. Slightly better than the default but still leaks origin to third parties.',
+    tip: 'Consider strict-origin-when-cross-origin for stronger protection.',
+  },
+  'no-referrer-when-downgrade': {
+    grade: 'C', risk: 'high', riskLabel: '🔶 Weak',
+    desc: 'Full URL sent to HTTPS destinations, no referrer to HTTP. This is the browser default — it leaks full paths (including search terms, IDs) to all HTTPS third parties.',
+    tip: 'Upgrade to strict-origin-when-cross-origin to prevent path leakage to third-party servers.',
+  },
+  '': {
+    grade: 'C', risk: 'high', riskLabel: '🔶 Missing',
+    desc: 'No Referrer-Policy header was set. Browser falls back to its default (usually no-referrer-when-downgrade), leaking full URLs to HTTPS third parties.',
+    tip: 'Add: Referrer-Policy: strict-origin-when-cross-origin to your server response headers.',
+  },
+  'unsafe-url': {
+    grade: 'F', risk: 'crit', riskLabel: '🚨 Critical',
+    desc: 'Always sends the full URL including path, query string, and fragment to all destinations — even cross-origin, even over HTTP. Maximum exposure.',
+    tip: 'Immediately change to strict-origin-when-cross-origin. unsafe-url leaks sensitive URLs to every third-party resource.',
+  },
+};
+
+function normalizePolicy(raw) {
+  if (!raw) return '';
+  // Some servers send comma-separated list; use the last valid one (browsers do the same)
+  const parts = raw.split(',').map(s => s.trim().toLowerCase());
+  for (let i = parts.length - 1; i >= 0; i--) {
+    if (RP_DB[parts[i]] !== undefined) return parts[i];
+  }
+  return parts[parts.length - 1] || '';
+}
+
+async function renderReferrerPolicy(tabId) {
+  const gradeEl = document.getElementById('rpGrade');
+  const valueEl = document.getElementById('rpValue');
+  const riskEl  = document.getElementById('rpRisk');
+  const descEl  = document.getElementById('rpDesc');
+  const tipEl   = document.getElementById('rpTip');
+  const panel   = document.getElementById('rpPanel');
+  if (!gradeEl) return;
+
+  const resp   = await chrome.runtime.sendMessage({ type: 'GET_REFERRER_POLICY', tabId });
+  const rawPol = resp?.policy;
+
+  if (rawPol === null) {
+    // Not yet captured — needs reload
+    gradeEl.textContent = '?'; gradeEl.className = 'rp-grade';
+    valueEl.textContent = 'Reload page to capture';
+    riskEl.textContent  = ''; riskEl.className = 'rp-risk';
+    descEl.textContent  = '';
+    tipEl.style.display = 'none';
+    panel.classList.add('rp-unknown');
+    return;
+  }
+
+  panel.classList.remove('rp-unknown');
+  const key  = normalizePolicy(rawPol);
+  const info = RP_DB[key] ?? {
+    grade: 'C', risk: 'high', riskLabel: '⚠️ Unknown',
+    desc: `Policy "${key}" is non-standard or experimental. Check browser support.`,
+    tip: 'Use strict-origin-when-cross-origin for broad compatibility and strong privacy.',
+  };
+
+  gradeEl.textContent = info.grade;
+  gradeEl.className   = `rp-grade rp-${info.grade.toLowerCase()}`;
+  valueEl.textContent = key || '(not set)';
+  riskEl.textContent  = info.riskLabel;
+  riskEl.className    = `rp-risk risk-${info.risk}`;
+  descEl.textContent  = info.desc;
+  if (info.tip) {
+    tipEl.textContent  = info.tip;
+    tipEl.style.display = '';
+  } else {
+    tipEl.style.display = 'none';
+  }
+}

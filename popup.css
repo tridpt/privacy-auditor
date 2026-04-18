@@ -1847,3 +1847,62 @@ body {
   font-size: 11px; color: var(--txt3);
 }
 .wf-empty.hidden { display: none; }
+
+/* ── Referrer Policy Panel ────────────────────────────────── */
+.rp-panel {
+  margin: 10px 14px 4px;
+  border-radius: 10px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.rp-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+}
+.rp-grade {
+  width: 36px; height: 36px; flex-shrink: 0;
+  border-radius: 8px; display: flex;
+  align-items: center; justify-content: center;
+  font-size: 17px; font-weight: 900;
+  background: var(--bg3);
+  border: 2px solid var(--border2);
+  transition: all .3s ease;
+}
+.rp-grade.rp-a { background: rgba(52,211,153,.15); border-color: #34d399; color: #34d399; }
+.rp-grade.rp-b { background: rgba(251,191,36,.12); border-color: #fbbf24; color: #fbbf24; }
+.rp-grade.rp-c { background: rgba(251,146,60,.12); border-color: #fb923c; color: #fb923c; }
+.rp-grade.rp-f { background: rgba(239,68,68,.12);  border-color: #ef4444; color: #ef4444; }
+
+.rp-info { flex: 1; min-width: 0; }
+.rp-label { font-size: 9px; font-weight: 700; color: var(--txt3); text-transform: uppercase; letter-spacing: .6px; }
+.rp-value { font-size: 11px; font-weight: 600; color: var(--txt); margin-top: 2px; font-family: monospace; }
+
+.rp-risk {
+  font-size: 8.5px; font-weight: 700; padding: 2px 8px;
+  border-radius: 999px; white-space: nowrap;
+  flex-shrink: 0;
+}
+.rp-risk.risk-safe   { background: rgba(52,211,153,.15); color: #34d399; border: 1px solid rgba(52,211,153,.3); }
+.rp-risk.risk-medium { background: rgba(251,191,36,.15); color: #fbbf24; border: 1px solid rgba(251,191,36,.3); }
+.rp-risk.risk-high   { background: rgba(251,146,60,.15); color: #fb923c; border: 1px solid rgba(251,146,60,.3); }
+.rp-risk.risk-crit   { background: rgba(239,68,68,.15);  color: #ef4444; border: 1px solid rgba(239,68,68,.3); }
+
+.rp-desc {
+  font-size: 10px; color: var(--txt3); line-height: 1.5;
+  padding: 0 12px 10px; border-top: 1px solid var(--border);
+  padding-top: 8px; margin-top: 0;
+}
+.rp-tip {
+  margin: 0 12px 10px;
+  background: rgba(99,102,241,.08);
+  border: 1px solid rgba(99,102,241,.25);
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-size: 9.5px; color: #a5b4fc; line-height: 1.5;
+}
+.rp-tip::before { content: '💡 '; }
+
+/* Reload needed state */
+.rp-panel.rp-unknown .rp-desc,
+.rp-panel.rp-unknown .rp-tip { display: none !important; }

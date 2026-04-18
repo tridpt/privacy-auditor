@@ -461,8 +461,9 @@ const TRACKERS = {
 };
 
 // ── In-memory tab data store ─────────────────────────────────
-const tabData  = new Map();
-const cspCache = new Map(); // tabId → CSP string (persists across initTabData resets)
+const tabData     = new Map();
+const cspCache    = new Map(); // tabId → CSP string (persists across initTabData resets)
+const refPolCache = new Map(); // tabId → Referrer-Policy string
 
 function initTabData(tabId, url = '') {
   tabData.set(tabId, {
@@ -1051,6 +1052,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
     }
 
+    case 'GET_REFERRER_POLICY': {
+      const rp = refPolCache.has(message.tabId)
+        ? refPolCache.get(message.tabId)
+        : null;
+      sendResponse({ policy: rp });
+      return true;
+    }
+
     case 'GET_CSP': {
       // Read from cspCache (not tabData) — avoids timing issue where
       // initTabData(loading) resets tabData.csp AFTER onHeadersReceived sets it
@@ -1073,8 +1082,12 @@ chrome.webRequest.onHeadersReceived.addListener(
     const cspHeader = details.responseHeaders?.find(
       h => h.name.toLowerCase() === 'content-security-policy'
     );
-    // Store in cspCache — separate from tabData so initTabData resets don't clear it
+    const refHeader = details.responseHeaders?.find(
+      h => h.name.toLowerCase() === 'referrer-policy'
+    );
+    // Store in dedicated caches — separate from tabData so initTabData resets don't clear them
     cspCache.set(details.tabId, cspHeader?.value ?? '');
+    refPolCache.set(details.tabId, refHeader?.value ?? '');
   },
   { urls: ['<all_urls>'], types: ['main_frame'] },
   ['responseHeaders']
