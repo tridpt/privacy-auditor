@@ -204,7 +204,7 @@ body {
 
 .score-grade {
   font-size: 14px; font-weight: 700;
-  margin-top: -6px;
+  margin-top: 2px;
 }
 .site-host {
   font-size: 11px; color: var(--txt3);
@@ -1534,7 +1534,7 @@ body {
 /* Gauge hint */
 .gauge-hint {
   font-size: 8.5px; color: var(--txt3);
-  text-align: center; margin-top: -2px;
+  text-align: center; margin-top: 0px; margin-bottom: 6px;
   letter-spacing: .3px;
   transition: color var(--transition);
 }
