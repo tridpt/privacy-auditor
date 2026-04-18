@@ -45,7 +45,47 @@ function scoreColor(score) {
   return getGrade(score).color;
 }
 
-// ── Gauge animation ──────────────────────────────────────────
+// ── Score Trend ───────────────────────────────────────────────
+async function renderScoreTrend(hostname, currentScore) {
+  const el = document.getElementById('scoreTrend');
+  if (!el || !hostname) { el?.classList.add('hidden'); return; }
+
+  // Read history — find PREVIOUS entry (older than 3s to avoid same-session writes)
+  const { siteHistory = [] } = await chrome.storage.local.get('siteHistory');
+  const prev = siteHistory.find(
+    e => e.hostname === hostname && (Date.now() - e.timestamp) > 3000
+  );
+
+  if (!prev) {
+    el.classList.add('hidden');
+    return;
+  }
+
+  const delta = currentScore - prev.score;
+  const absDelta = Math.abs(delta);
+
+  let direction, arrow, label;
+  if (delta > 0) {
+    direction = 'up';
+    arrow     = '↑';
+    label     = `+${absDelta} vs last visit`;
+  } else if (delta < 0) {
+    direction = 'down';
+    arrow     = '↓';
+    label     = `${delta} vs last visit`;
+  } else {
+    direction = 'same';
+    arrow     = '→';
+    label     = 'Same as last visit';
+  }
+
+  el.className = `score-trend ${direction}`;
+  el.innerHTML = `<span class="trend-arrow">${arrow}</span><span>${label}</span>`;
+  el.title     = `Previous: ${prev.score}/100  ·  Now: ${currentScore}/100`;
+  el.classList.remove('hidden');
+}
+
+// ── Gauge animation ───────────────────────────────────────────
 function animateGauge(targetScore) {
   const arc   = document.getElementById('scoreArc');
   const num   = document.getElementById('scoreNum');
@@ -581,6 +621,9 @@ async function loadData() {
     const gradeEl = document.getElementById('scoreGrade');
     gradeEl.textContent = grade.label;
     gradeEl.style.color = grade.color;
+
+    // Trend arrow — compare with previous visit
+    renderScoreTrend(hostname, data.score);
 
     // First-party data collector warning
     const banner = document.getElementById('firstPartyBanner');

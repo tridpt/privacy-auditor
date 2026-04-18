@@ -213,6 +213,39 @@ body {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
+/* ── Score Trend Arrow ────────────────────────────────────── */
+.score-trend {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  margin-top: 4px;
+  cursor: default;
+  animation: trendIn .4s cubic-bezier(.34,1.56,.64,1) both;
+}
+@keyframes trendIn {
+  from { opacity: 0; transform: scale(.7) translateY(4px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+.score-trend.up {
+  background: rgba(34,197,94,.14);
+  border-color: rgba(34,197,94,.3);
+  color: #86efac;
+}
+.score-trend.down {
+  background: rgba(239,68,68,.14);
+  border-color: rgba(239,68,68,.3);
+  color: #fca5a5;
+}
+.score-trend.same {
+  background: rgba(100,116,139,.12);
+  border-color: rgba(100,116,139,.25);
+  color: var(--txt3);
+}
+.trend-arrow {
+  font-size: 14px; line-height: 1;
+}
 .fp-banner {
   margin-top: 7px;
   font-size: 10px;
