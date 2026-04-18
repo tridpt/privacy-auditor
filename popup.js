@@ -457,12 +457,17 @@ function analyzeCsp(cspStr) {
   const highCount = issues.filter(i => i.severity === 'high').length;
   const goodCount = issues.filter(i => i.severity === 'good').length;
   let grade;
-  if      (!cspStr)          grade = 'F';
-  else if (critCount >= 1)   grade = 'F';
-  else if (highCount >= 3)   grade = 'D';
-  else if (highCount >= 1)   grade = 'C';
-  else if (goodCount >= 3)   grade = 'A';
-  else                       grade = 'B';
+  // F only when CSP is present but completely neutered by both unsafe-inline + unsafe-eval
+  const titleStr  = issues.map(i => i.title || '').join(' ');
+  const bothUnsafe = /unsafe-inline/i.test(titleStr) && /unsafe-eval/i.test(titleStr);
+  if      (!cspStr)                      grade = 'D'; // No CSP is common, was unfairly F
+  else if (critCount >= 1 && bothUnsafe) grade = 'F'; // CSP present but useless
+  else if (critCount >= 2)               grade = 'F';
+  else if (critCount >= 1)               grade = 'D';
+  else if (highCount >= 3)               grade = 'D';
+  else if (highCount >= 1)               grade = 'C';
+  else if (goodCount >= 3)               grade = 'A';
+  else                                   grade = 'B';
 
   return { directives, issues, grade };
 }
@@ -501,10 +506,10 @@ async function renderCspTab(tabId) {
   }
 
   if (!cspStr) {
-    pill.textContent  = 'F';
-    pill.className    = 'csp-grade-pill grade-F';
-    label.textContent = 'No CSP — Critical Risk';
-    statusEl.textContent = '✗ Header absent';
+    pill.textContent  = 'D';
+    pill.className    = 'csp-grade-pill grade-D';
+    label.textContent = 'No CSP — Not Recommended';
+    statusEl.textContent = '⚠ Header absent';
     statusEl.className   = 'csp-header-status missing';
     issuesEl.innerHTML   = '';
     dirsEl.innerHTML     = '';
@@ -517,7 +522,7 @@ async function renderCspTab(tabId) {
   statusEl.className   = 'csp-header-status present';
 
   const { directives, issues, grade } = analyzeCsp(cspStr);
-  const gradeLabels = { A:'Excellent',B:'Good',C:'Fair',D:'Weak',F:'Critical Risk' };
+  const gradeLabels = { A:'Excellent', B:'Good', C:'Fair', D:'Weak', F:'Critically Misconfigured' };
 
   pill.textContent  = grade;
   pill.className    = `csp-grade-pill grade-${grade}`;
