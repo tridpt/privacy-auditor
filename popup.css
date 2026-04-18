@@ -357,21 +357,27 @@ body {
   flex-shrink: 0;
   border-bottom: 1px solid var(--border);
 }
-/* Right-edge fade — signals more tabs hidden beyond scroll */
+/* Right-edge indicator — signals more tabs hidden beyond scroll */
 .tabs-wrap::after {
   content: '›';
   position: absolute; top: 0; right: 0;
-  width: 36px; height: 100%;
-  background: linear-gradient(to right, transparent, var(--bg) 70%);
+  width: 48px; height: 100%;
+  background: linear-gradient(to right, transparent, var(--bg) 55%);
   display: flex; align-items: center; justify-content: flex-end;
-  padding-right: 6px;
-  font-size: 14px; color: var(--txt3);
+  padding-right: 8px;
+  font-size: 18px; font-weight: 900; color: #818cf8;
+  text-shadow: 0 0 8px rgba(99,102,241,.7);
   pointer-events: none;
   transition: opacity .25s ease;
   z-index: 2;
+  animation: tabPulse 1.8s ease-in-out infinite;
 }
-/* Hide fade once scrolled to end */
-.tabs-wrap.at-end::after { opacity: 0; }
+@keyframes tabPulse {
+  0%, 100% { opacity: 1; transform: translateX(0); }
+  50%       { opacity: .6; transform: translateX(2px); }
+}
+/* Hide once scrolled to end */
+.tabs-wrap.at-end::after { opacity: 0 !important; animation: none; }
 
 .tabs {
   display: flex; gap: 2px;
