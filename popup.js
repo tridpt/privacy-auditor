@@ -2404,8 +2404,12 @@ updateNcBadge();
   });
   tabs.addEventListener('scroll', updateArrows, { passive: true });
 
-  // Initial state
-  updateArrows();
+  // Wait for layout paint before checking scroll dimensions
+  // Double-rAF ensures browser has recalculated scrollWidth after render
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    updateArrows();
+    setTimeout(updateArrows, 150); // extra safety after fonts/styles settle
+  }));
 })();
 loadData();
 
