@@ -132,14 +132,22 @@
 ```
 privacy-auditor/
 ├── manifest.json      # MV3 manifest — permissions & content scripts
-├── background.js      # Service worker — tracker DB, network & CSP capture, scoring
+├── background.js      # Service worker — network & CSP capture, blocking, persistence
+├── lib/
+│   └── scoring.js     # Pure tracker DB + scoring logic (shared, unit-tested)
 ├── injected.js        # Main-world script — fingerprint API hooks (bypasses page CSP)
 ├── content.js         # Isolated-world script — DOM scan, relay fingerprint signals
 ├── popup.html         # Popup UI structure (8 tabs)
 ├── popup.js           # Popup logic — rendering, tab navigation, all feature engines
 ├── popup.css          # Premium dark UI styles
-└── options.html/css   # Extension options page
+├── options.html/css   # Extension options page
+└── tests/
+    └── scoring.test.js # Node unit tests for the scoring engine
 ```
+
+> `background.js` loads `lib/scoring.js` via `importScripts()` so the tracker
+> database and scoring functions live in a single source of truth that is also
+> unit-tested under Node — no duplication between runtime and tests.
 
 ### Data Flow
 
@@ -233,11 +241,29 @@ Page loads
 ## 🧠 Technical Notes
 
 - **Manifest V3** compatible service worker architecture
+- **Single source of truth** — all pure scoring/tracker logic lives in `lib/scoring.js`, loaded into the service worker via `importScripts()` and unit-tested under Node. No `chrome.*` calls in that file
+- **State survives worker restarts** — MV3 kills the service worker after ~30s idle, wiping in-memory `tabData`. A debounced snapshot is mirrored to `chrome.storage.session` (in-memory, cleared on browser close) and restored on wake-up, so scan data is not lost between popup opens
+- **Production-safe block counter** — `onRuleMatchedDebug` only fires for unpacked dev builds. When unavailable (Web Store builds), the lifetime-blocked counter falls back to a manual estimate inside `onBeforeRequest`
 - **CSP bypass** — `injected.js` uses `world: "MAIN"` in the manifest, never injected via `innerHTML`
 - **Timing-safe header capture** — CSP and Referrer-Policy stored in dedicated `cspCache` / `refPolCache` Maps to avoid race condition where `tabs.onUpdated(loading)` would reset `tabData` after `onHeadersReceived` already wrote the headers
 - **Memory-safe request log** — Network waterfall entries capped at 250 per tab
 - **Lazy tab rendering** — Network waterfall fetched only on first tab switch via `tabSwitch` custom event
 - **Double `requestAnimationFrame`** — Used before checking scroll dimensions to ensure browser has completed layout paint
+
+---
+
+## 🧪 Testing
+
+Pure scoring logic in `lib/scoring.js` is covered by unit tests using Node's
+built-in test runner (no dependencies to install):
+
+```bash
+npm test
+```
+
+Tests live in `tests/scoring.test.js` and cover `calculateScore`,
+`matchTracker`, `isSameFamily`, `getFirstPartyPenalty`, `scoreToColor`, and the
+integrity of the tracker database.
 
 ---
 
