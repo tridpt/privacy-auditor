@@ -1342,14 +1342,14 @@ document.getElementById('clearHistoryBtn').addEventListener('click', async () =>
 });
 
 // ── AI Analysis (Gemini) ──────────────────────────────────────
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 function buildPrompt(data, hostname, language) {
   const trackerList = (data.trackers ?? []).map(t =>
-    `- ${t.name} [${t.category}] Risk:${t.risk.toUpperCase()}${(data.blocked??[]).some(b=>b===t.name+'|'+t.category)?' (BLOCKED)':''}`
+    `- ${t.name} [${t.category}] Risk:${(t.risk ?? 'unknown').toUpperCase()}${(data.blocked??[]).some(b=>b===t.name+'|'+t.category)?' (BLOCKED)':''}`
   ).join('\n') || '- None detected';
 
-  const fpList = (data.fingerprinting ?? []).map(f => `- ${f.technique}`).join('\n') || '- None';
+  const fpList = (data.fingerprinting ?? []).map(f => `- ${typeof f === 'string' ? f : (f.technique ?? f.api ?? 'unknown')}`).join('\n') || '- None';
 
   return `You are a privacy security expert. Analyze this website privacy scan and explain in ${language}.
 
