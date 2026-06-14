@@ -1344,6 +1344,18 @@ document.getElementById('clearHistoryBtn').addEventListener('click', async () =>
 // ── AI Analysis (Gemini) ──────────────────────────────────────
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
+// Map retired/deprecated model ids to a live equivalent. Google shut down
+// the Gemini 2.0 / 1.5 families (2.0-flash-lite ended 2026-06-01), so users
+// who saved an old choice in storage would otherwise hit HTTP 404.
+const RETIRED_MODELS = {
+  'gemini-2.0-flash-lite': 'gemini-2.5-flash-lite',
+  'gemini-2.0-flash':      'gemini-2.5-flash',
+  'gemini-1.5-flash':      'gemini-2.5-flash',
+  'gemini-1.5-flash-8b':   'gemini-2.5-flash-lite',
+  'gemini-1.5-pro':        'gemini-2.5-pro',
+};
+const liveModel = (m) => RETIRED_MODELS[m] ?? m ?? 'gemini-2.5-flash-lite';
+
 function buildPrompt(data, hostname, language) {
   const trackerList = (data.trackers ?? []).map(t =>
     `- ${t.name} [${t.category}] Risk:${(t.risk ?? 'unknown').toUpperCase()}${(data.blocked??[]).some(b=>b===t.name+'|'+t.category)?' (BLOCKED)':''}`
@@ -1379,7 +1391,7 @@ Respond ONLY with valid JSON (no markdown, no code blocks):
 async function runAiAnalysis() {
   if (!currentData || !currentHostname) return;
 
-  const { geminiApiKey, aiLanguage = 'Vietnamese', geminiModel = 'gemini-2.0-flash-lite' } =
+  const { geminiApiKey, aiLanguage = 'Vietnamese', geminiModel = 'gemini-2.5-flash-lite' } =
     await chrome.storage.local.get(['geminiApiKey', 'aiLanguage', 'geminiModel']);
 
   const panel   = document.getElementById('aiPanel');
@@ -1408,7 +1420,7 @@ async function runAiAnalysis() {
 
   try {
     const prompt = buildPrompt(currentData, currentHostname, aiLanguage);
-    const resp = await fetch(`${GEMINI_BASE}/${geminiModel}:generateContent?key=${geminiApiKey}`, {
+    const resp = await fetch(`${GEMINI_BASE}/${liveModel(geminiModel)}:generateContent?key=${geminiApiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
