@@ -167,17 +167,20 @@ Vanilla JS (no framework) · Manifest V3 · `declarativeNetRequest` · `webReque
 privacy-auditor/
 ├── manifest.json      # MV3 manifest — permissions & content scripts
 ├── background.js      # Service worker — network & CSP capture, blocking, persistence
-├── lib/
-│   └── scoring.js     # Pure tracker DB + scoring logic (shared, unit-tested)
 ├── injected.js        # Main-world script — fingerprint API hooks (bypasses page CSP)
 ├── content.js         # Isolated-world script — DOM scan, relay fingerprint signals
-├── popup.html         # Popup UI structure (8 tabs)
-├── popup.js           # Popup logic — rendering, tab navigation, all feature engines
-├── popup.css          # Premium dark UI styles
-├── options.html/css   # Extension options page
-└── tests/
-    └── scoring.test.js # Node unit tests for the scoring engine
+├── popup.html/js/css  # Popup UI — 8 tabs, all feature engines
+├── options.html/js/css# Extension options page
+├── lib/
+│   ├── scoring.js     # Pure tracker DB + scoring logic (shared, unit-tested)
+│   └── headers.js     # Pure CSP + referrer-policy analysis (shared, unit-tested)
+├── tests/
+│   ├── scoring.test.js # 25 Node unit tests for the scoring engine
+│   └── headers.test.js # 20 Node unit tests for header analysis
+└── build-zip.mjs      # Web Store packaging script
 ```
+
+> 📐 For a deep dive into the data flow, execution contexts, and design decisions, see **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
 
 > `background.js` loads `lib/scoring.js` via `importScripts()` so the tracker
 > database and scoring functions live in a single source of truth that is also
