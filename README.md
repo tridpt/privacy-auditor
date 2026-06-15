@@ -2,13 +2,47 @@
 
 <div align="center">
 
-![Chrome Extension](https://img.shields.io/badge/Chrome_Extension-MV3-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white)
-![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
-![Version](https://img.shields.io/badge/Version-1.0.0-purple?style=for-the-badge)
+[![CI](https://github.com/tridpt/privacy-auditor/actions/workflows/ci.yml/badge.svg)](https://github.com/tridpt/privacy-auditor/actions/workflows/ci.yml)
+![Tests](https://img.shields.io/badge/tests-45_passing-brightgreen?style=flat&logo=nodedotjs&logoColor=white)
+![Chrome Extension](https://img.shields.io/badge/Chrome_Extension-MV3-4285F4?style=flat&logo=googlechrome&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green?style=flat)
+![Version](https://img.shields.io/badge/Version-1.0.0-purple?style=flat)
 
 **A comprehensive Chrome extension that audits websites in real-time for trackers, fingerprinting, CSP weaknesses, cookie risks, network behavior, and privacy policy violations — all in one powerful popup.**
 
+<br>
+
+<!-- DEMO: record a short screen capture and save it as docs/demo.gif, then
+     uncomment the line below. See docs/CAPTURE_GUIDE.md for exact steps.
+![Privacy Auditor demo](docs/demo.gif)
+-->
+<sub>📹 Demo GIF coming soon — see <a href="docs/CAPTURE_GUIDE.md">capture guide</a></sub>
+
 </div>
+
+---
+
+## 💡 Why I built this
+
+Most people have no idea how many companies watch them on an average web page — analytics SDKs, ad pixels, session recorders that replay every mouse move, and fingerprinting scripts that identify you without cookies. The tools that *do* expose this are either oversimplified ("X trackers blocked") or buried in DevTools.
+
+I wanted a single popup that answers, in plain language, **"how is this site treating my data, and how bad is it?"** — a real privacy score, the actual tracker names and what they do, the fingerprinting techniques in use, and the server's security posture (CSP, referrer policy, mixed content). Then one click to block it all.
+
+It started as a way to learn the Manifest V3 extension model deeply, and grew into a full auditing tool.
+
+## 🛠️ Engineering highlights
+
+These are the problems that were interesting to solve, beyond the feature list:
+
+- **MV3 service-worker state loss** — Chrome kills the worker after ~30s idle, wiping in-memory scan data. I mirror state to `chrome.storage.session` with a debounced snapshot and rehydrate on wake-up, so the popup never shows a blank page. Read paths `await` restore to avoid a race on cold start.
+- **CSP-bypassing fingerprint hooks** — fingerprinting APIs (Canvas, WebGL, Audio…) must be hooked in the page's own world, but strict CSP blocks injected `<script>`. I use a `world: "MAIN"` content script that patches the prototypes while preserving `this` binding and original behavior, relaying signals to an isolated-world script.
+- **Header capture race** — `tabs.onUpdated(loading)` would reset tab data *after* `onHeadersReceived` had already written the CSP, losing it. Headers now live in dedicated caches separate from the reset path.
+- **Testable core, untestable shell** — all scoring, tracker matching, CSP grading, and referrer analysis live in pure modules (`lib/scoring.js`, `lib/headers.js`) with **45 unit tests** runnable under Node, while DOM/`chrome.*` code stays in the shell. One source of truth: the service worker loads the same files via `importScripts`, the popup via `<script>`.
+- **Production-safe block counter** — the obvious `onRuleMatchedDebug` API is dev-mode only. The lifetime counter detects its absence and falls back to estimating matches inside `onBeforeRequest` so it keeps working in published builds.
+
+## 🧰 Tech & tooling
+
+Vanilla JS (no framework) · Manifest V3 · `declarativeNetRequest` · `webRequest` · Node built-in test runner · GitHub Actions CI (Node 20 + 22) · Gemini API for AI explanations
 
 ---
 
@@ -17,7 +51,7 @@
 ### 🎯 Core Analysis
 | Feature | Description |
 |---|---|
-| **Tracker Detection** | 50+ known trackers across 8 categories (Analytics, Ads, Session Recording, Social, etc.) |
+| **Tracker Detection** | 150+ known tracker domains across 12 categories (Analytics, Ads, Session Recording, Data Brokers, Fingerprinting, Consent, etc.) |
 | **Fingerprinting Detection** | Canvas, WebGL, Audio, Font, Battery, Navigator API hooks via Main-world injection |
 | **Privacy Score** | Animated 0–100 gauge with color-coded risk levels and score trend arrow |
 | **First-party Warning** | Flags known data-collector sites (Facebook, TikTok, YouTube) with fixed penalties |
