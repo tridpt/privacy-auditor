@@ -36,9 +36,18 @@ test('matchTracker matches exact known tracker domains', () => {
 });
 
 test('matchTracker matches subdomains of known trackers', () => {
-  const m = matchTracker('region1.google-analytics.com');
+  // ssl.google-analytics.com has no exact entry, so it resolves via the
+  // subdomain fallback to the base google-analytics.com tracker.
+  const m = matchTracker('ssl.google-analytics.com');
   assert.ok(m);
   assert.equal(m.name, 'Google Analytics');
+});
+
+test('matchTracker prefers an exact entry over the subdomain fallback', () => {
+  // region1.google-analytics.com IS a distinct exact entry (GA4 endpoint).
+  const m = matchTracker('region1.google-analytics.com');
+  assert.ok(m);
+  assert.equal(m.name, 'Google Analytics 4');
 });
 
 test('matchTracker returns null for unknown and empty domains', () => {
