@@ -4,7 +4,8 @@
   "description": "Real-time privacy analysis Chrome extension — detect trackers, fingerprinting & data collection on any website",
   "private": true,
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "build": "node build-zip.mjs"
   },
   "license": "MIT",
   "repository": {
